@@ -132,6 +132,8 @@ bpy.ops.object.join()
 mesh = bpy.context.active_object
 mesh.name = "KnightMesh"
 bpy.ops.object.shade_flat()
+# join() keeps the first part's origin; put the pivot at the world origin between the feet
+bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
 if MIXAMO_OUT:
     os.makedirs(os.path.dirname(MIXAMO_OUT), exist_ok=True)
