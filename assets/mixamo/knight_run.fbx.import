@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://c4ulrpax1806h"
-path="res://.godot/imported/knight_tpose.fbx-4d7deb39d288826af9f500b5a7aeafec.scn"
+uid="uid://j61e715vwgnt"
+path="res://.godot/imported/knight_run.fbx-87900adffc5a8ca386fdf03ef657a96f.scn"
 
 [deps]
 
-source_file="res://assets/mixamo/knight_tpose.fbx"
-dest_files=["res://.godot/imported/knight_tpose.fbx-4d7deb39d288826af9f500b5a7aeafec.scn"]
+source_file="res://assets/mixamo/knight_run.fbx"
+dest_files=["res://.godot/imported/knight_run.fbx-87900adffc5a8ca386fdf03ef657a96f.scn"]
 
 [params]
 
@@ -19,7 +19,7 @@ nodes/root_script=null
 mesh_library/use_node_names_as_mesh_names=false
 array_mesh/deduplicate_surfaces=true
 nodes/apply_root_scale=true
-nodes/root_scale=1.0
+nodes/root_scale=100.0
 nodes/import_as_skeleton_bones=false
 nodes/use_name_suffixes=true
 nodes/use_node_type_suffixes=true

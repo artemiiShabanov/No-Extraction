@@ -56,7 +56,7 @@ func _process(_delta: float) -> void:
 	if frame == 30:
 		knight.hit(knight.global_position + Vector3(0.1, 1.2, -0.2), Vector3(0, 0, 16.0), null)
 	if frame in [31, 45, 75, 150]:
-		var hips: Node3D = knight.find_child("PB_Hips", true, false)
+		var hips: Node3D = knight.find_child("PB_mixamorig_Hips", true, false)
 		var sk: Skeleton3D = knight.skel
 		var sim: PhysicalBoneSimulator3D = null
 		for c in sk.get_children():
@@ -64,7 +64,7 @@ func _process(_delta: float) -> void:
 				sim = c
 		print("F%d pb_hips=%s bone_hips_pose=%s sim_simulating=%s pb_simulating=%s" % [
 			frame, hips.global_position if hips else "none",
-			sk.get_bone_global_pose(sk.find_bone("Hips")).origin,
+			sk.get_bone_global_pose(maxi(sk.find_bone("mixamorig_Hips"), 0)).origin,
 			sim.is_simulating_physics() if sim else "nosim",
 			hips.is_simulating_physics() if hips else "n/a"])
 		if Game.screenshot_path != "":
