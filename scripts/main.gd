@@ -95,6 +95,7 @@ func _build_hud() -> void:
 	add_child(layer)
 	scope = ScopeOverlay.new()
 	scope.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scope.mouse_filter = Control.MOUSE_FILTER_IGNORE  # otherwise the overlay eats mouse events before the player sees them
 	scope.player = player
 	layer.add_child(scope)
 	hud = Label.new()
@@ -116,6 +117,25 @@ func _process(_delta: float) -> void:
 
 func _auto_test() -> void:
 	# scripted run for screenshots: wait for the crowd, aim at the nearest knight, fire, capture.
+	# input regression check: synthetic mouse motion and left click must reach the player
+	if frame == 100:
+		var motion := InputEventMouseMotion.new()
+		motion.relative = Vector2(200, 0)
+		Input.parse_input_event(motion)
+	if frame == 102:
+		print("INPUT mouse look %s (yaw %.3f)" % ["OK" if abs(player.rotation.y) > 0.01 else "FAIL", player.rotation.y])
+		player.rotation.y = 0.0
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		Input.parse_input_event(click)
+	if frame == 104:
+		print("INPUT left click fire %s (ammo %d)" % ["OK" if player.ammo == player.magazine_size - 1 else "FAIL", player.ammo])
+		var release := InputEventMouseButton.new()
+		release.button_index = MOUSE_BUTTON_LEFT
+		release.pressed = false
+		Input.parse_input_event(release)
+		player.ammo = player.magazine_size
 	if frame == 240:
 		var k := _nearest_knight()
 		if k:
