@@ -12,7 +12,10 @@ from mathutils import Vector
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 OUT = argv[0]
-PREVIEW_DIR = argv[1] if len(argv) > 1 else None
+PREVIEW_DIR = argv[1] if len(argv) > 1 and not argv[1].startswith("--") else None
+# --mixamo <out.fbx>: export a T-posed, unrigged mesh for the Mixamo auto-rigger
+MIXAMO_OUT = argv[argv.index("--mixamo") + 1] if "--mixamo" in argv else None
+T_POSE = MIXAMO_OUT is not None
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
@@ -47,7 +50,8 @@ parts = []
 # Coordinates below are authored with the character facing -Y (Blender "front").
 # glTF export maps Blender -Y to +Z, which is *backwards* for Godot, so every
 # Y coordinate and every X rotation is mirrored here to make the export face -Z.
-FLIP = -1.0
+# The FBX exporter has its own axis conversion, so the Mixamo mesh is not mirrored.
+FLIP = 1.0 if T_POSE else -1.0
 
 
 def box(name, size, center, bone, material):
@@ -93,20 +97,31 @@ box("HelmetSideL", (0.04, 0.42, 0.28), (0.20, 0.0, HEAD_BOTTOM + 0.18), "Head", 
 box("HelmetSideR", (0.04, 0.42, 0.28), (-0.20, 0.0, HEAD_BOTTOM + 0.18), "Head", "Armor")
 box("NoseGuard", (0.06, 0.05, 0.22), (0.0, -0.20, HEAD_BOTTOM + 0.16), "Head", "Armor")
 
-# arms
-for side, sx in (("L", 1), ("R", -1)):
-    ax = 0.36 * sx
-    box(f"Pauldron.{side}", (0.24, 0.30, 0.16), (ax, 0.0, SHOULDER + 0.02), f"UpperArm.{side}", "Armor")
-    box(f"UpperArm.{side}", (0.17, 0.18, 0.30), (ax, 0.0, SHOULDER - 0.17), f"UpperArm.{side}", "Tunic")
-    box(f"LowerArm.{side}", (0.15, 0.16, 0.30), (ax, 0.0, SHOULDER - 0.47), f"LowerArm.{side}", "Leather")
-    box(f"Hand.{side}", (0.14, 0.14, 0.12), (ax, 0.0, SHOULDER - 0.66), f"LowerArm.{side}", "Skin")
+# arms: authored hanging down, relative to the shoulder joint. In T-pose mode the
+# whole arm (with shield and sword) is rotated 90 degrees to point sideways.
+def arm_box(name, size, rel, side, bone, material):
+    s = 1 if side == "L" else -1
+    x, y, z = rel
+    sx_, sy_, sz_ = size
+    if T_POSE:
+        # rotate about the front axis so "down" becomes "outward"
+        x, z = -z * s, x * s
+        sx_, sz_ = sz_, sx_
+    box(name, (sx_, sy_, sz_), (0.36 * s + x, y, SHOULDER + z), bone, material)
+
+
+for side in ("L", "R"):
+    arm_box(f"Pauldron.{side}", (0.24, 0.30, 0.16), (0.0, 0.0, 0.02), side, f"UpperArm.{side}", "Armor")
+    arm_box(f"UpperArm.{side}", (0.17, 0.18, 0.30), (0.0, 0.0, -0.17), side, f"UpperArm.{side}", "Tunic")
+    arm_box(f"LowerArm.{side}", (0.15, 0.16, 0.30), (0.0, 0.0, -0.47), side, f"LowerArm.{side}", "Leather")
+    arm_box(f"Hand.{side}", (0.14, 0.14, 0.12), (0.0, 0.0, -0.66), side, f"LowerArm.{side}", "Skin")
 
 # shield on left forearm, sword in right hand
-box("Shield", (0.06, 0.50, 0.62), (0.36 + 0.12, 0.0, SHOULDER - 0.45), "LowerArm.L", "Shield")
-box("ShieldBoss", (0.04, 0.16, 0.16), (0.36 + 0.16, 0.0, SHOULDER - 0.45), "LowerArm.L", "Armor")
-box("SwordGrip", (0.05, 0.05, 0.22), (-0.36, -0.12, SHOULDER - 0.66), "LowerArm.R", "Leather")
-box("SwordGuard", (0.22, 0.05, 0.04), (-0.36, -0.12, SHOULDER - 0.53), "LowerArm.R", "Dark")
-box("SwordBlade", (0.07, 0.03, 0.70), (-0.36, -0.12, SHOULDER - 0.16), "LowerArm.R", "Armor")
+arm_box("Shield", (0.06, 0.50, 0.62), (0.12, 0.0, -0.45), "L", "LowerArm.L", "Shield")
+arm_box("ShieldBoss", (0.04, 0.16, 0.16), (0.16, 0.0, -0.45), "L", "LowerArm.L", "Armor")
+arm_box("SwordGrip", (0.05, 0.05, 0.16), (0.0, -0.12, -0.66), "R", "LowerArm.R", "Leather")
+arm_box("SwordGuard", (0.22, 0.05, 0.04), (0.0, -0.12, -0.76), "R", "LowerArm.R", "Dark")
+arm_box("SwordBlade", (0.07, 0.03, 0.46), (0.0, -0.12, -1.01), "R", "LowerArm.R", "Armor")
 
 # join into one mesh
 bpy.ops.object.select_all(action="DESELECT")
@@ -117,6 +132,39 @@ bpy.ops.object.join()
 mesh = bpy.context.active_object
 mesh.name = "KnightMesh"
 bpy.ops.object.shade_flat()
+
+if MIXAMO_OUT:
+    os.makedirs(os.path.dirname(MIXAMO_OUT), exist_ok=True)
+    bpy.ops.object.select_all(action="DESELECT")
+    mesh.select_set(True)
+    bpy.ops.export_scene.fbx(
+        filepath=MIXAMO_OUT,
+        use_selection=True,
+        object_types={"MESH"},
+        mesh_smooth_type="OFF",
+        add_leaf_bones=False,
+        bake_anim=False,
+        path_mode="COPY",
+        embed_textures=False,
+        apply_scale_options="FBX_SCALE_ALL",
+    )
+    if PREVIEW_DIR:
+        os.makedirs(PREVIEW_DIR, exist_ok=True)
+        scene.render.engine = "BLENDER_WORKBENCH"
+        scene.display.shading.light = "STUDIO"
+        scene.display.shading.color_type = "MATERIAL"
+        scene.render.resolution_x = 640
+        scene.render.resolution_y = 640
+        cam_data = bpy.data.cameras.new("Cam")
+        cam = bpy.data.objects.new("Cam", cam_data)
+        scene.collection.objects.link(cam)
+        cam.location = (0.0, -4.5, 1.0)
+        cam.rotation_euler = (math.radians(90), 0, 0)
+        scene.camera = cam
+        scene.render.filepath = os.path.join(PREVIEW_DIR, "tpose_front.png")
+        bpy.ops.render.render(write_still=True)
+    print("EXPORTED", MIXAMO_OUT)
+    sys.exit(0)
 
 # ---------------------------------------------------------------- armature
 bpy.ops.object.armature_add(enter_editmode=True, location=(0, 0, 0))
