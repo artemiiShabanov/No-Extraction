@@ -127,6 +127,7 @@ if MIXAMO_OUT:
         mod = base.modifiers.new("union", "BOOLEAN")
         mod.operation = "UNION"
         mod.solver = "EXACT"
+        mod.material_mode = "TRANSFER"
         mod.object = o
         bpy.context.view_layer.objects.active = base
         bpy.ops.object.modifier_apply(modifier=mod.name)
