@@ -20,6 +20,10 @@ func _ready() -> void:
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
 	_build_environment()
+	var terrain := StaticBody3D.new()
+	terrain.name = "Terrain"
+	terrain.set_script(load("res://scripts/terrain.gd"))
+	add_child(terrain)
 	var castle := Node3D.new()
 	castle.name = "Castle"
 	castle.set_script(load("res://scripts/castle.gd"))
@@ -43,13 +47,19 @@ func _ready() -> void:
 func _build_environment() -> void:
 	var env := Environment.new()
 	var sky := Sky.new()
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.25, 0.42, 0.7)
-	sky_mat.sky_horizon_color = Color(0.72, 0.72, 0.68)
-	sky_mat.ground_bottom_color = Color(0.2, 0.18, 0.15)
-	sky_mat.ground_horizon_color = Color(0.6, 0.58, 0.52)
-	sky_mat.sun_angle_max = 20.0
-	sky.sky_material = sky_mat
+	var hdri := EnvMaterials.sky_hdri()
+	if hdri:
+		var pano := PanoramaSkyMaterial.new()
+		pano.panorama = hdri
+		sky.sky_material = pano
+	else:
+		var sky_mat := ProceduralSkyMaterial.new()
+		sky_mat.sky_top_color = Color(0.25, 0.42, 0.7)
+		sky_mat.sky_horizon_color = Color(0.72, 0.72, 0.68)
+		sky_mat.ground_bottom_color = Color(0.2, 0.18, 0.15)
+		sky_mat.ground_horizon_color = Color(0.6, 0.58, 0.52)
+		sky_mat.sun_angle_max = 20.0
+		sky.sky_material = sky_mat
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
@@ -178,6 +188,7 @@ func _auto_test() -> void:
 	if frame == Game.test_frames - 30:
 		# wide look at the allied line for the battlefield screenshot
 		Input.action_release("aim")
+		player.global_position.z = -1.9  # step up to the parapet to see the field below
 		player.aim_at(Vector3(0.0, 1.0, -22.0))
 	if frame == Game.test_frames - 10 and Game.screenshot_path != "":
 		_screenshot(Game.screenshot_path.replace(".png", "_field.png"))

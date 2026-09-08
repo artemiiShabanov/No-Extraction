@@ -54,7 +54,7 @@ func _spawn_enemy() -> void:
 	var k := KnightScene.instantiate()
 	var x := rng.randf_range(-spawn_x_half, spawn_x_half)
 	var z := rng.randf_range(spawn_z_min, spawn_z_max)
-	k.position = Vector3(x, 0.0, z)
+	k.position = Vector3(x, _ground(x, z) + 0.2, z)
 	# a third of them go for the gate, the rest spread along the wall
 	var tx: float = clampf(x * 0.6, -wall_x_half, wall_x_half)
 	if rng.randf() < 0.33:
@@ -71,7 +71,7 @@ func _spawn_ally() -> void:
 	var k := KnightScene.instantiate()
 	var x := rng.randf_range(-wall_x_half, wall_x_half)
 	var z := rng.randf_range(ally_z_min, ally_z_max)
-	k.position = Vector3(x, 0.0, z)
+	k.position = Vector3(x, _ground(x, z) + 0.2, z)
 	k.target = k.position
 	k.hold = true
 	k.speed = rng.randf_range(5.0, 7.0)
@@ -104,6 +104,10 @@ func _pair_duels() -> void:
 			ally.melee_target = best
 			best.melee_target = ally
 			free_enemies.erase(best)
+
+
+func _ground(x: float, z: float) -> float:
+	return Game.terrain.height_at(x, z) if Game.terrain else 0.0
 
 
 func alive_count(faction: int = Game.Faction.ENEMY) -> int:

@@ -30,6 +30,7 @@ var blocked := 0
 var ally_kills := 0  # allies killed by the player (friendly fire)
 var melee_deaths := 0
 var last_kill: Node3D
+var terrain: Node3D  # set by Terrain when it enters the tree
 
 
 func _ready() -> void:
