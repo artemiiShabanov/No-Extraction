@@ -134,16 +134,29 @@ if MIXAMO_OUT:
     os.makedirs(os.path.dirname(MIXAMO_OUT), exist_ok=True)
     bpy.ops.object.select_all(action="DESELECT")
     mesh.select_set(True)
+    # Mixamo's auto-rigger is picky: triangulate, and also write an OBJ fallback,
+    # which in practice is the most reliable format for it.
     bpy.ops.export_scene.fbx(
         filepath=MIXAMO_OUT,
         use_selection=True,
         object_types={"MESH"},
         mesh_smooth_type="OFF",
+        use_triangles=True,
         add_leaf_bones=False,
         bake_anim=False,
         path_mode="COPY",
         embed_textures=False,
         apply_scale_options="FBX_SCALE_ALL",
+    )
+    bpy.ops.wm.obj_export(
+        filepath=os.path.splitext(MIXAMO_OUT)[0] + ".obj",
+        export_selected_objects=True,
+        export_triangulated_mesh=True,
+        export_materials=True,
+        export_normals=True,
+        export_uv=True,
+        forward_axis="NEGATIVE_Z",
+        up_axis="Y",
     )
     if PREVIEW_DIR:
         os.makedirs(PREVIEW_DIR, exist_ok=True)
