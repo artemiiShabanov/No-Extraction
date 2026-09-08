@@ -1,0 +1,243 @@
+extends Node3D
+## Prototype scene root: environment, castle, player, spawner, HUD, debug automation.
+
+const PlayerScene := preload("res://scenes/player.tscn")
+
+var player: CharacterBody3D
+var spawner: Node3D
+var hud: Label
+var scope: Control
+var frame := 0
+var _perf_accum := 0.0
+var _perf_cpu := 0.0
+var _perf_gpu := 0.0
+var _perf_render_cpu := 0.0
+var _kill_frame := -1
+
+
+func _ready() -> void:
+	if Game.auto_test:
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	_build_environment()
+	var castle := Node3D.new()
+	castle.name = "Castle"
+	castle.set_script(load("res://scripts/castle.gd"))
+	add_child(castle)
+
+	spawner = Node3D.new()
+	spawner.name = "Spawner"
+	spawner.set_script(load("res://scripts/spawner.gd"))
+	if Game.auto_test:
+		spawner.spawn_z_min = -110.0
+		spawner.spawn_z_max = -50.0
+	add_child(spawner)
+
+	player = PlayerScene.instantiate()
+	player.position = Vector3(15.0, 10.1, 0.0)
+	add_child(player)
+
+	_build_hud()
+
+
+func _build_environment() -> void:
+	var env := Environment.new()
+	var sky := Sky.new()
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.25, 0.42, 0.7)
+	sky_mat.sky_horizon_color = Color(0.72, 0.72, 0.68)
+	sky_mat.ground_bottom_color = Color(0.2, 0.18, 0.15)
+	sky_mat.ground_horizon_color = Color(0.6, 0.58, 0.52)
+	sky_mat.sun_angle_max = 20.0
+	sky.sky_material = sky_mat
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_sky_contribution = 1.0
+	env.ambient_light_energy = 0.8
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 1.0
+	env.ssao_enabled = true
+	env.sdfgi_enabled = true
+	env.sdfgi_cascades = 6
+	env.glow_enabled = true
+	env.glow_intensity = 0.5
+	env.glow_bloom = 0.05
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.7, 0.72, 0.7)
+	env.fog_density = 0.0016
+	env.fog_sky_affect = 0.3
+	env.adjustment_enabled = true
+	env.adjustment_contrast = 1.05
+	env.adjustment_saturation = 1.08
+	var we := WorldEnvironment.new()
+	we.environment = env
+	add_child(we)
+
+	var sun := DirectionalLight3D.new()
+	sun.name = "Sun"
+	sun.rotation_degrees = Vector3(-38.0, 35.0, 0.0)
+	sun.light_color = Color(1.0, 0.93, 0.8)
+	sun.light_energy = 1.4
+	sun.shadow_enabled = true
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_max_distance = 320.0
+	sun.directional_shadow_split_1 = 0.05
+	sun.directional_shadow_split_2 = 0.15
+	sun.directional_shadow_split_3 = 0.4
+	sun.directional_shadow_blend_splits = true
+	sun.shadow_bias = 0.03
+	add_child(sun)
+
+
+func _build_hud() -> void:
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	scope = ScopeOverlay.new()
+	scope.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scope.player = player
+	layer.add_child(scope)
+	hud = Label.new()
+	hud.position = Vector2(16, 12)
+	hud.add_theme_font_size_override("font_size", 20)
+	hud.add_theme_color_override("font_color", Color(0.95, 0.9, 0.8))
+	hud.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	hud.add_theme_constant_override("shadow_offset_x", 1)
+	hud.add_theme_constant_override("shadow_offset_y", 1)
+	layer.add_child(hud)
+
+
+func _process(_delta: float) -> void:
+	frame += 1
+	hud.text = "AMMO %d / %d    [R] reload\nKILLS %d   ENEMIES %d\nFPS %d" % [player.ammo, player.magazine_size, Game.kills, spawner.alive_count(), Engine.get_frames_per_second()]
+	if Game.auto_test:
+		_auto_test()
+
+
+func _auto_test() -> void:
+	# scripted run for screenshots: wait for the crowd, aim at the nearest knight, fire, capture.
+	if frame == 240:
+		var k := _nearest_knight()
+		if k:
+			player.aim_at(k.global_position + Vector3(0, 1.1, 0))
+			player.aiming = true
+	if frame == 250:
+		Input.action_press("aim")
+	if frame >= 260 and frame % 40 == 0 and frame <= 500:
+		var k := _nearest_knight()
+		if k:
+			player.aim_at(_ballistic_aim_point(k))
+			player.fire_cooldown = 0.0
+			player.try_fire()
+	if frame == 200 and Game.screenshot_path != "":
+		var k := _nearest_knight()
+		if k:
+			player.aim_at(k.global_position + Vector3(0, 1.0, 0))
+		_screenshot(Game.screenshot_path.replace(".png", "_wide.png"))
+	if frame == 330 and Game.screenshot_path != "":
+		_screenshot(Game.screenshot_path.replace(".png", "_ads.png"))
+	# ragdoll close-up: 25 frames after the first kill, look at the corpse's hips
+	if Game.last_kill and _kill_frame < 0:
+		_kill_frame = frame
+	if _kill_frame > 0 and frame == _kill_frame + 25 and is_instance_valid(Game.last_kill):
+		var hips: Node3D = Game.last_kill.find_child("PB_Hips", true, false)
+		player.aim_at((hips.global_position if hips else Game.last_kill.global_position) + Vector3(0, 0.3, 0))
+	if _kill_frame > 0 and frame == _kill_frame + 26 and Game.screenshot_path != "":
+		_screenshot(Game.screenshot_path.replace(".png", "_ragdoll.png"))
+	if frame >= 400 and frame < 480:
+		_perf_accum += get_process_delta_time()
+		_perf_cpu += Performance.get_monitor(Performance.TIME_PROCESS) + Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
+		_perf_gpu += RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
+		_perf_render_cpu += RenderingServer.viewport_get_measured_render_time_cpu(get_viewport().get_viewport_rid())
+	if frame == 480:
+		print("PERF frame %.2f ms | script+physics %.2f ms | render cpu %.2f ms | gpu %.2f ms | knights alive %d | kills %d" % [
+			_perf_accum / 80.0 * 1000.0, _perf_cpu / 80.0 * 1000.0, _perf_render_cpu / 80.0, _perf_gpu / 80.0, spawner.alive_count(), Game.kills])
+	if frame == 500:
+		Input.action_release("aim")
+		get_tree().quit()
+
+
+func _ballistic_aim_point(k: Node3D) -> Vector3:
+	## Lead the target and hold over for bullet drop (debug aim bot).
+	var origin: Vector3 = player.camera.global_position
+	var target: Vector3 = k.global_position + Vector3(0, 1.1, 0)
+	var t := origin.distance_to(target) / 170.0
+	var vel: Vector3 = k.velocity
+	target += vel * t
+	target.y += 0.5 * 9.8 * t * t
+	return target
+
+
+func _nearest_knight(want_dead: bool = false) -> Node3D:
+	## Nearest knight with a clear line of sight from the camera.
+	var best: Node3D = null
+	var bd := INF
+	var space := get_world_3d().direct_space_state
+	var eye: Vector3 = player.camera.global_position
+	var muzzle: Vector3 = player.muzzle.global_position
+	for k in get_tree().get_nodes_in_group("knight"):
+		if k.dead != want_dead:
+			continue
+		var d: float = k.global_position.distance_to(player.global_position)
+		if d >= bd or (d < 30.0 and not want_dead):
+			continue
+		var aim: Vector3 = k.global_position + Vector3(0, 1.1, 0)
+		if space.intersect_ray(PhysicsRayQueryParameters3D.create(eye, aim, Game.LAYER_WORLD)):
+			continue
+		if space.intersect_ray(PhysicsRayQueryParameters3D.create(muzzle, aim, Game.LAYER_WORLD)):
+			continue
+		bd = d
+		best = k
+	return best
+
+
+func _screenshot(path: String) -> void:
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	img.save_png(path)
+	print("SCREENSHOT ", path)
+
+
+class ScopeOverlay:
+	extends Control
+	var player: Node
+
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var blend: float = player.aim_blend if player else 0.0
+		if blend > 0.01:
+			var r := minf(size.x, size.y) * 0.42
+			var alpha := smoothstep(0.0, 1.0, blend)
+			# black vignette outside the scope circle
+			var col := Color(0, 0, 0, alpha)
+			draw_rect(Rect2(0, 0, size.x, c.y - r), col)
+			draw_rect(Rect2(0, c.y + r, size.x, size.y - c.y - r), col)
+			draw_rect(Rect2(0, c.y - r, c.x - r, 2 * r), col)
+			draw_rect(Rect2(c.x + r, c.y - r, size.x - c.x - r, 2 * r), col)
+			_draw_ring(c, r, r * 1.5, col, 96)
+			draw_arc(c, r, 0, TAU, 96, Color(0.1, 0.1, 0.1, alpha), 3.0, true)
+			# reticle
+			var rc := Color(0.05, 0.05, 0.05, alpha)
+			draw_line(c - Vector2(r, 0), c - Vector2(24, 0), rc, 2.0, true)
+			draw_line(c + Vector2(24, 0), c + Vector2(r, 0), rc, 2.0, true)
+			draw_line(c - Vector2(0, r), c - Vector2(0, 24), rc, 2.0, true)
+			draw_line(c + Vector2(0, 24), c + Vector2(0, r), rc, 2.0, true)
+			draw_line(c - Vector2(0, 24), c + Vector2(0, 24), rc, 1.0, true)
+			draw_line(c - Vector2(24, 0), c + Vector2(24, 0), rc, 1.0, true)
+			for i in range(1, 5):
+				draw_line(c + Vector2(-8, i * 22), c + Vector2(8, i * 22), rc, 1.0, true)
+		if blend < 0.9:
+			draw_circle(c, 2.5, Color(1, 1, 1, 0.8 * (1.0 - blend)))
+
+	func _draw_ring(c: Vector2, r0: float, r1: float, col: Color, segs: int) -> void:
+		# ring between r0 and r1 drawn as a fan of quads (draw_polygon has no holes)
+		var cols := PackedColorArray([col, col, col, col])
+		for i in segs:
+			var a0 := TAU * i / segs
+			var a1 := TAU * (i + 1) / segs
+			var d0 := Vector2(cos(a0), sin(a0))
+			var d1 := Vector2(cos(a1), sin(a1))
+			draw_polygon(PackedVector2Array([c + d0 * r0, c + d0 * r1, c + d1 * r1, c + d1 * r0]), cols)
