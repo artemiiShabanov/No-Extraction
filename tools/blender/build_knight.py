@@ -116,12 +116,7 @@ for side in ("L", "R"):
     arm_box(f"LowerArm.{side}", (0.15, 0.16, 0.30), (0.0, 0.0, -0.47), side, f"LowerArm.{side}", "Leather")
     arm_box(f"Hand.{side}", (0.14, 0.14, 0.12), (0.0, 0.0, -0.66), side, f"LowerArm.{side}", "Skin")
 
-# shield on left forearm, sword in right hand
-arm_box("Shield", (0.06, 0.50, 0.62), (0.12, 0.0, -0.45), "L", "LowerArm.L", "Shield")
-arm_box("ShieldBoss", (0.04, 0.16, 0.16), (0.16, 0.0, -0.45), "L", "LowerArm.L", "Armor")
-arm_box("SwordGrip", (0.05, 0.05, 0.16), (0.0, -0.12, -0.66), "R", "LowerArm.R", "Leather")
-arm_box("SwordGuard", (0.22, 0.05, 0.04), (0.0, -0.12, -0.76), "R", "LowerArm.R", "Dark")
-arm_box("SwordBlade", (0.07, 0.03, 0.46), (0.0, -0.12, -1.01), "R", "LowerArm.R", "Armor")
+# weapons (sword, shield) are separate models attached to bones in Godot, see build_weapons.py
 
 # join into one mesh
 bpy.ops.object.select_all(action="DESELECT")

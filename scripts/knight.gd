@@ -5,6 +5,12 @@ extends CharacterBody3D
 @export var tunic_color := Color(0.75, 0.12, 0.10)
 @export var corpse_time := 9.0
 
+const SwordScene := preload("res://assets/models/sword.glb")
+const ShieldScene := preload("res://assets/models/shield.glb")
+# bone name candidates: our Blender rig first, Mixamo rig second
+const RIGHT_HAND_BONES := ["LowerArm.R", "mixamorig_RightHand", "mixamorig:RightHand"]
+const LEFT_ARM_BONES := ["LowerArm.L", "mixamorig_LeftForeArm", "mixamorig:LeftForeArm"]
+
 var target := Vector3.ZERO
 var dead := false
 var attacking := false
@@ -30,6 +36,8 @@ func _ready() -> void:
 				body_mesh = c
 				break
 	_apply_tunic_color()
+	_attach_prop(RIGHT_HAND_BONES, SwordScene, Vector3(0.0, 0.34, 0.0))
+	_attach_prop(LEFT_ARM_BONES, ShieldScene, Vector3(0.12, 0.15, 0.0))
 	if anim:
 		anim.speed_scale = randf_range(0.9, 1.15)
 		_play_loop("Run")
@@ -45,6 +53,22 @@ func _apply_tunic_color() -> void:
 			var dup: StandardMaterial3D = m.duplicate()
 			dup.albedo_color = tunic_color
 			body_mesh.set_surface_override_material(i, dup)
+
+
+func _attach_prop(bone_candidates: Array, scene: PackedScene, offset: Vector3) -> void:
+	## Parent a prop to the first bone from the list that exists on this skeleton.
+	if skel == null:
+		return
+	for bone_name in bone_candidates:
+		if skel.find_bone(bone_name) < 0:
+			continue
+		var attachment := BoneAttachment3D.new()
+		attachment.bone_name = bone_name
+		skel.add_child(attachment)
+		var prop := scene.instantiate()
+		prop.position = offset
+		attachment.add_child(prop)
+		return
 
 
 func _play_loop(anim_name: String) -> void:
