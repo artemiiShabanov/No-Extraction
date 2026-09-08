@@ -68,7 +68,8 @@ func _physics_process(delta: float) -> void:
 		return
 	var next := global_position + velocity * delta
 	var query := PhysicsRayQueryParameters3D.create(global_position, next)
-	query.collision_mask = Game.LAYER_WORLD | Game.LAYER_KNIGHT | Game.LAYER_RAGDOLL
+	query.collision_mask = Game.LAYER_WORLD | Game.LAYER_RAGDOLL | Game.LAYER_HITBOX
+	query.collide_with_areas = true
 	query.hit_from_inside = false
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if hit:
@@ -86,7 +87,11 @@ func _physics_process(delta: float) -> void:
 func _on_hit(hit: Dictionary) -> void:
 	var collider: Object = hit.collider
 	var dir := velocity.normalized()
-	if collider.has_method("hit"):
+	if collider is Area3D and collider.has_meta("knight"):
+		var knight: Node = collider.get_meta("knight")
+		if is_instance_valid(knight):
+			knight.hit_zone(collider.get_meta("zone"), hit.position, dir * impact_impulse)
+	elif collider.has_method("hit"):
 		collider.hit(hit.position, dir * impact_impulse, self)
 	else:
 		_spawn_impact(hit.position, hit.normal, Color(0.62, 0.58, 0.5, 0.9))

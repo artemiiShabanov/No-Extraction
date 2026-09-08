@@ -1,11 +1,16 @@
 extends CharacterBody3D
-## Blocky enemy knight: runs to a target on the wall, attacks, ragdolls when shot.
+## Blocky knight (enemy or ally). Enemies charge the wall; allies hold the field.
+## Opposing knights pair up and duel 1 on 1. Bullets hit per-bone zones.
 ## Skeleton and animations come from Mixamo (assets/mixamo), props are attached to bones.
 
 @export var speed := 6.0
+@export var faction: Game.Faction = Game.Faction.ENEMY
 @export var tunic_color := Color(0.75, 0.12, 0.10)
-@export var corpse_time := 9.0
+@export var corpse_time := 12.0
 @export var model_yaw := PI  # Mixamo rigs face +Z, Godot forward is -Z
+@export var max_hp := 2  # bullet damage: head = kill, torso = 2, limb = 1, shield = 0
+@export var melee_hp := 3
+@export var melee_hit_chance := 0.5
 
 const SwordScene := preload("res://assets/models/sword.glb")
 const ShieldScene := preload("res://assets/models/shield.glb")
@@ -20,11 +25,27 @@ const ANIM_FILES := {
 const LOOPING := ["Run", "Idle", "Attack"]
 static var _anim_cache := {}
 
-# bone name candidates: Mixamo rig first, our old Blender rig second
-const RIGHT_HAND_BONES := ["mixamorig_RightHand", "LowerArm.R"]
-const LEFT_ARM_BONES := ["mixamorig_LeftForeArm", "LowerArm.L"]
+const RIGHT_HAND_BONE := "mixamorig_RightHand"
+const LEFT_ARM_BONE := "mixamorig_LeftForeArm"
+const SHIELD_OFFSET := Vector3(0.12, 0.13, 0.0)
 
-# ragdoll: only these bones get physics bodies, the rest follow their parents
+# hit zones: bone -> [box size, offset along the bone, zone name]
+const HITBOXES := {
+	"mixamorig_Head": [Vector3(0.42, 0.44, 0.42), Vector3(0, 0.22, 0), "head"],
+	"mixamorig_Spine": [Vector3(0.56, 0.50, 0.36), Vector3(0, 0.20, 0), "torso"],
+	"mixamorig_Hips": [Vector3(0.50, 0.26, 0.32), Vector3(0, -0.02, 0), "torso"],
+	"mixamorig_LeftArm": [Vector3(0.18, 0.30, 0.18), Vector3(0, 0.15, 0), "limb"],
+	"mixamorig_RightArm": [Vector3(0.18, 0.30, 0.18), Vector3(0, 0.15, 0), "limb"],
+	"mixamorig_LeftForeArm": [Vector3(0.16, 0.36, 0.16), Vector3(0, 0.18, 0), "limb"],
+	"mixamorig_RightForeArm": [Vector3(0.16, 0.36, 0.16), Vector3(0, 0.18, 0), "limb"],
+	"mixamorig_LeftUpLeg": [Vector3(0.21, 0.40, 0.22), Vector3(0, 0.20, 0), "limb"],
+	"mixamorig_RightUpLeg": [Vector3(0.21, 0.40, 0.22), Vector3(0, 0.20, 0), "limb"],
+	"mixamorig_LeftLeg": [Vector3(0.19, 0.44, 0.20), Vector3(0, 0.22, 0), "limb"],
+	"mixamorig_RightLeg": [Vector3(0.19, 0.44, 0.20), Vector3(0, 0.22, 0), "limb"],
+}
+const ZONE_DAMAGE := {"head": 99, "torso": 2, "limb": 1, "shield": 0}
+
+# ragdoll: only these bones get physics bodies, the rest follow their parents. [width, mass]
 const RAGDOLL_BONES := {
 	"mixamorig_Hips": [0.40, 4.0], "mixamorig_Spine": [0.42, 2.0], "mixamorig_Spine1": [0.46, 2.0], "mixamorig_Spine2": [0.50, 2.0],
 	"mixamorig_Neck": [0.16, 0.5], "mixamorig_Head": [0.40, 1.5],
@@ -32,24 +53,40 @@ const RAGDOLL_BONES := {
 	"mixamorig_RightArm": [0.18, 1.0], "mixamorig_RightForeArm": [0.16, 0.8], "mixamorig_RightHand": [0.14, 0.3],
 	"mixamorig_LeftUpLeg": [0.21, 1.5], "mixamorig_LeftLeg": [0.19, 1.0], "mixamorig_LeftFoot": [0.18, 0.4],
 	"mixamorig_RightUpLeg": [0.21, 1.5], "mixamorig_RightLeg": [0.19, 1.0], "mixamorig_RightFoot": [0.18, 0.4],
-	# old Blender rig
-	"Hips": [0.44, 4.0], "Spine": [0.5, 4.0], "Head": [0.4, 1.5],
-	"UpperArm.L": [0.2, 1.0], "UpperArm.R": [0.2, 1.0], "LowerArm.L": [0.18, 1.0], "LowerArm.R": [0.18, 1.0],
-	"UpperLeg.L": [0.2, 1.0], "UpperLeg.R": [0.2, 1.0], "LowerLeg.L": [0.18, 1.0], "LowerLeg.R": [0.18, 1.0],
 }
-const BONE_LEN_FALLBACK := {"mixamorig_Head": 0.40, "Head": 0.46, "LowerArm.L": 0.40, "LowerArm.R": 0.40, "LowerLeg.L": 0.45, "LowerLeg.R": 0.45}
+const BONE_LEN_FALLBACK := {"mixamorig_Head": 0.40}
 
-var target := Vector3.ZERO
+# Mixamo strips PBR settings from the materials, so the palette is re-applied by name.
+# [albedo, roughness, metallic]
+const PALETTE := {
+	"Armor": [Color(0.55, 0.57, 0.60), 0.45, 0.6],
+	"Skin": [Color(0.87, 0.62, 0.45), 0.85, 0.0],
+	"Leather": [Color(0.30, 0.18, 0.09), 0.85, 0.0],
+	"Dark": [Color(0.08, 0.08, 0.09), 0.85, 0.0],
+	"Tunic": [Color(0.75, 0.12, 0.10), 0.85, 0.0],
+}
+static var _material_cache := {}
+
+var target := Vector3.ZERO  # enemies: point on the wall; allies: post to hold
+var hold := false  # stand still in Idle (allies without an opponent, tests)
 var dead := false
 var attacking := false
+var hp := 2
+var melee_target: CharacterBody3D = null
+var attack_timer := 0.0
+var attack_period := 1.4
+var stagger := 0.0
+var slow := 1.0
 var anim: AnimationPlayer
 var skel: Skeleton3D
 var body_mesh: MeshInstance3D
+var hitboxes: Array[Area3D] = []
 var wobble_phase := randf() * TAU
 
 
 func _ready() -> void:
 	add_to_group("knight")
+	hp = max_hp
 	collision_layer = Game.LAYER_KNIGHT
 	collision_mask = Game.LAYER_WORLD | Game.LAYER_KNIGHT
 	var model: Node3D = $Model
@@ -62,15 +99,19 @@ func _ready() -> void:
 			if c is MeshInstance3D:
 				body_mesh = c
 				break
-	_apply_tunic_color()
-	_attach_prop(RIGHT_HAND_BONES, SwordScene, Vector3(0.0, 0.06, 0.0))
-	_attach_prop(LEFT_ARM_BONES, ShieldScene, Vector3(0.12, 0.13, 0.0))
+	_apply_palette()
+	_attach_prop(RIGHT_HAND_BONE, SwordScene, Vector3(0.0, 0.06, 0.0))
+	var shield_attachment := _attach_prop(LEFT_ARM_BONE, ShieldScene, SHIELD_OFFSET)
+	_build_hitboxes(shield_attachment)
 	if anim:
 		_install_animations()
 		anim.speed_scale = randf_range(0.9, 1.15)
-		_play_loop("Run")
+		attack_period = anim.get_animation("Attack").length / anim.speed_scale if anim.has_animation("Attack") else 1.4
+		_play_loop("Idle" if hold else "Run")
 	speed *= randf_range(0.9, 1.1)
 
+
+# ------------------------------------------------------------------ setup
 
 func _install_animations() -> void:
 	## Copy the clips from the animation-only Mixamo files into this rig's player.
@@ -103,19 +144,7 @@ static func _load_clip(anim_name: String) -> Animation:
 	return clip
 
 
-# Mixamo strips PBR settings from the materials, so the palette is re-applied by name.
-# [albedo, roughness, metallic]
-const PALETTE := {
-	"Armor": [Color(0.55, 0.57, 0.60), 0.45, 0.6],
-	"Skin": [Color(0.87, 0.62, 0.45), 0.85, 0.0],
-	"Leather": [Color(0.30, 0.18, 0.09), 0.85, 0.0],
-	"Dark": [Color(0.08, 0.08, 0.09), 0.85, 0.0],
-	"Tunic": [Color(0.75, 0.12, 0.10), 0.85, 0.0],
-}
-static var _material_cache := {}
-
-
-func _apply_tunic_color() -> void:
+func _apply_palette() -> void:
 	if body_mesh == null or body_mesh.mesh == null:
 		return
 	for i in body_mesh.mesh.get_surface_count():
@@ -137,20 +166,49 @@ func _apply_tunic_color() -> void:
 			break
 
 
-func _attach_prop(bone_candidates: Array, scene: PackedScene, offset: Vector3) -> void:
-	## Parent a prop to the first bone from the list that exists on this skeleton.
+func _attach_prop(bone_name: String, scene: PackedScene, offset: Vector3) -> BoneAttachment3D:
+	if skel == null or skel.find_bone(bone_name) < 0:
+		return null
+	var attachment := BoneAttachment3D.new()
+	attachment.bone_name = bone_name
+	skel.add_child(attachment)
+	var prop := scene.instantiate()
+	prop.position = offset
+	attachment.add_child(prop)
+	return attachment
+
+
+func _build_hitboxes(shield_attachment: BoneAttachment3D) -> void:
 	if skel == null:
 		return
-	for bone_name in bone_candidates:
+	for bone_name in HITBOXES:
 		if skel.find_bone(bone_name) < 0:
 			continue
+		var spec: Array = HITBOXES[bone_name]
 		var attachment := BoneAttachment3D.new()
 		attachment.bone_name = bone_name
 		skel.add_child(attachment)
-		var prop := scene.instantiate()
-		prop.position = offset
-		attachment.add_child(prop)
-		return
+		attachment.add_child(_make_hitbox(spec[0], spec[1], spec[2]))
+	if shield_attachment:
+		shield_attachment.add_child(_make_hitbox(Vector3(0.09, 0.66, 0.54), SHIELD_OFFSET, "shield"))
+
+
+func _make_hitbox(size: Vector3, offset: Vector3, zone: String) -> Area3D:
+	var area := Area3D.new()
+	area.name = "Hitbox_" + zone
+	area.collision_layer = Game.LAYER_HITBOX
+	area.collision_mask = 0
+	area.monitoring = false
+	area.set_meta("knight", self)
+	area.set_meta("zone", zone)
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	shape.position = offset
+	area.add_child(shape)
+	hitboxes.append(area)
+	return area
 
 
 func _play_loop(anim_name: String) -> void:
@@ -160,25 +218,55 @@ func _play_loop(anim_name: String) -> void:
 		anim.play(anim_name, 0.15)
 
 
+# ------------------------------------------------------------------ behaviour
+
 func _physics_process(delta: float) -> void:
 	if dead:
 		return
-	var to := target - global_position
+	stagger = max(stagger - delta, 0.0)
+	if melee_target and (not is_instance_valid(melee_target) or melee_target.dead):
+		melee_target = null
+		attacking = false
+	var goal: Vector3
+	var engage_range := 1.6
+	if melee_target:
+		goal = melee_target.global_position
+		engage_range = 1.9
+	elif hold:
+		goal = global_position
+	else:
+		goal = target
+	var to := goal - global_position
 	to.y = 0.0
-	if to.length() < 1.6:
-		if not attacking:
-			attacking = true
-			_play_loop("Attack")
+	if stagger > 0.0:
+		velocity.x = move_toward(velocity.x, 0.0, 20.0 * delta)
+		velocity.z = move_toward(velocity.z, 0.0, 20.0 * delta)
+	elif to.length() < engage_range:
 		velocity.x = 0
 		velocity.z = 0
+		if melee_target or not hold:
+			_face(to, delta)
+			if not attacking:
+				attacking = true
+				attack_timer = attack_period * randf_range(0.3, 1.0)
+			_play_loop("Attack")
+			if melee_target:
+				attack_timer -= delta
+				if attack_timer <= 0.0:
+					attack_timer = attack_period
+					melee_target.take_melee_hit(self)
+		else:
+			_play_loop("Idle")
 	else:
+		attacking = false
 		wobble_phase += delta
 		var dir := to.normalized()
 		var side := dir.cross(Vector3.UP) * sin(wobble_phase * 0.7) * 0.25
-		velocity.x = (dir + side).normalized().x * speed
-		velocity.z = (dir + side).normalized().z * speed
-		var yaw := atan2(-dir.x, -dir.z)
-		rotation.y = lerp_angle(rotation.y, yaw, delta * 6.0)
+		var move := (dir + side).normalized() * speed * slow
+		velocity.x = move.x
+		velocity.z = move.z
+		_face(dir, delta)
+		_play_loop("Run")
 	if not is_on_floor():
 		velocity.y -= 9.8 * delta
 	else:
@@ -186,23 +274,85 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 
-func hit(pos: Vector3, impulse: Vector3, _bullet: Node) -> void:
+func _face(dir: Vector3, delta: float) -> void:
+	if dir.length_squared() < 0.0001:
+		return
+	var yaw := atan2(-dir.x, -dir.z)
+	rotation.y = lerp_angle(rotation.y, yaw, delta * 8.0)
+
+
+func take_melee_hit(attacker: CharacterBody3D) -> void:
 	if dead:
 		return
-	dead = true
-	Game.kills += 1
-	Game.last_kill = self
+	if randf() > melee_hit_chance:
+		return
+	melee_hp -= 1
+	var pos := global_position + Vector3(0, 1.1, 0)
+	var dir := (global_position - attacker.global_position).normalized()
 	var BulletScript := load("res://scripts/bullet.gd")
+	BulletScript.spawn_puff(get_tree().current_scene, pos, dir, Color(0.55, 0.08, 0.05, 0.9), 8, 0.2)
+	if melee_hp <= 0:
+		Game.melee_deaths += 1
+		_die_animated()
+
+
+## Bullet impact on a hit zone. Returns the zone so the shooter can react.
+func hit_zone(zone: String, pos: Vector3, impulse: Vector3) -> String:
+	if dead:
+		return zone
+	var BulletScript := load("res://scripts/bullet.gd")
+	if zone == "shield":
+		Game.blocked += 1
+		BulletScript.spawn_puff(get_tree().current_scene, pos, -impulse.normalized(), Color(1.0, 0.9, 0.6, 1.0), 16, 0.18)
+		stagger = 0.7
+		velocity += impulse.normalized() * 2.5
+		return zone
 	BulletScript.spawn_puff(get_tree().current_scene, pos, -impulse.normalized(), Color(0.55, 0.08, 0.05, 0.95), 18, 0.25)
-	_ragdoll(pos, impulse)
+	hp -= ZONE_DAMAGE.get(zone, 1)
+	if hp <= 0:
+		if zone == "head":
+			Game.headshots += 1
+		if faction == Game.Faction.ALLY:
+			Game.ally_kills += 1
+		else:
+			Game.kills += 1
+		Game.last_kill = self
+		_ragdoll(pos, impulse * (1.6 if zone == "head" else 1.0))
+	else:
+		slow = 0.6
+		stagger = 0.4
+	return zone
 
 
-func _ragdoll(hit_pos: Vector3, impulse: Vector3) -> void:
-	if anim:
-		anim.stop()
+## Legacy entry point (capsule hit without a zone) — treated as a torso hit.
+func hit(pos: Vector3, impulse: Vector3, _bullet: Node) -> void:
+	hit_zone("torso", pos, impulse)
+
+
+func _mark_dead() -> void:
+	dead = true
+	melee_target = null
 	collision_layer = 0
 	collision_mask = 0
 	$CollisionShape3D.disabled = true
+	for h in hitboxes:
+		h.collision_layer = 0
+	get_tree().create_timer(corpse_time).timeout.connect(queue_free)
+
+
+func _die_animated() -> void:
+	_mark_dead()
+	velocity = Vector3.ZERO
+	if anim and anim.has_animation("Death"):
+		anim.play("Death", 0.1)
+
+
+# ------------------------------------------------------------------ ragdoll
+
+func _ragdoll(hit_pos: Vector3, impulse: Vector3) -> void:
+	_mark_dead()
+	if anim:
+		anim.stop()
 	if skel == null:
 		queue_free()
 		return
@@ -246,18 +396,17 @@ func _ragdoll(hit_pos: Vector3, impulse: Vector3) -> void:
 			nearest_d = d
 			nearest = pb
 	sim.physical_bones_start_simulation()
-	var hips: PhysicalBone3D = bodies.get("mixamorig_Hips", bodies.get("Hips"))
+	var hips: PhysicalBone3D = bodies.get("mixamorig_Hips")
 	if nearest:
 		nearest.apply_central_impulse(impulse)
 		nearest.apply_impulse(impulse * 0.3, Vector3(randf_range(-0.2, 0.2), randf_range(0.1, 0.3), randf_range(-0.2, 0.2)))
 	if hips and hips != nearest:
 		hips.apply_central_impulse(impulse * 0.6)
 	# kick the feet out so the body never stays standing like a statue
-	for leg in ["mixamorig_LeftLeg", "mixamorig_RightLeg", "LowerLeg.L", "LowerLeg.R"]:
+	for leg in ["mixamorig_LeftLeg", "mixamorig_RightLeg"]:
 		var l: PhysicalBone3D = bodies.get(leg)
 		if l:
 			l.apply_central_impulse(-impulse.normalized() * 2.0 + Vector3(randf_range(-1.5, 1.5), 0, 0))
-	get_tree().create_timer(corpse_time).timeout.connect(queue_free)
 
 
 func _has_ragdoll_ancestor(bone: int) -> bool:

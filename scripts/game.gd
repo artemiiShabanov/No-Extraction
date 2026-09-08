@@ -17,10 +17,18 @@ const LAYER_WORLD := 1
 const LAYER_KNIGHT := 2
 const LAYER_RAGDOLL := 4
 const LAYER_PLAYER := 8
+const LAYER_HITBOX := 16  # per-bone Area3D hit zones on living knights
+
+enum Faction { ENEMY, ALLY }
 
 var screenshot_path := ""
 var auto_test := false
+var test_frames := 500
 var kills := 0
+var headshots := 0
+var blocked := 0
+var ally_kills := 0  # allies killed by the player (friendly fire)
+var melee_deaths := 0
 var last_kill: Node3D
 
 
@@ -40,6 +48,8 @@ func _ready() -> void:
 			screenshot_path = arg.get_slice("=", 1)
 		elif arg == "--auto-test":
 			auto_test = true
+		elif arg.begins_with("--frames="):
+			test_frames = int(arg.get_slice("=", 1))
 
 
 func _add_mouse_action(action_name: String, button: MouseButton) -> void:

@@ -110,7 +110,9 @@ func _build_hud() -> void:
 
 func _process(_delta: float) -> void:
 	frame += 1
-	hud.text = "AMMO %d / %d    [R] reload\nKILLS %d   ENEMIES %d\nFPS %d" % [player.ammo, player.magazine_size, Game.kills, spawner.alive_count(), Engine.get_frames_per_second()]
+	hud.text = "AMMO %d / %d    [R] reload\nKILLS %d  (headshots %d, blocked by shields %d, allies hit %d)\nENEMIES %d   ALLIES %d   melee deaths %d\nFPS %d" % [
+		player.ammo, player.magazine_size, Game.kills, Game.headshots, Game.blocked, Game.ally_kills,
+		spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.melee_deaths, Engine.get_frames_per_second()]
 	if Game.auto_test:
 		_auto_test()
 
@@ -160,7 +162,7 @@ func _auto_test() -> void:
 	if Game.last_kill and _kill_frame < 0:
 		_kill_frame = frame
 	if _kill_frame > 0 and frame == _kill_frame + 25 and is_instance_valid(Game.last_kill):
-		var hips: Node3D = Game.last_kill.find_child("PB_Hips", true, false)
+		var hips: Node3D = Game.last_kill.find_child("PB_mixamorig_Hips", true, false)
 		player.aim_at((hips.global_position if hips else Game.last_kill.global_position) + Vector3(0, 0.3, 0))
 	if _kill_frame > 0 and frame == _kill_frame + 26 and Game.screenshot_path != "":
 		_screenshot(Game.screenshot_path.replace(".png", "_ragdoll.png"))
@@ -170,9 +172,18 @@ func _auto_test() -> void:
 		_perf_gpu += RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
 		_perf_render_cpu += RenderingServer.viewport_get_measured_render_time_cpu(get_viewport().get_viewport_rid())
 	if frame == 480:
-		print("PERF frame %.2f ms | script+physics %.2f ms | render cpu %.2f ms | gpu %.2f ms | knights alive %d | kills %d" % [
-			_perf_accum / 80.0 * 1000.0, _perf_cpu / 80.0 * 1000.0, _perf_render_cpu / 80.0, _perf_gpu / 80.0, spawner.alive_count(), Game.kills])
-	if frame == 500:
+		print("PERF frame %.2f ms | script+physics %.2f ms | render cpu %.2f ms | gpu %.2f ms | enemies %d allies %d | kills %d headshots %d blocked %d melee deaths %d" % [
+			_perf_accum / 80.0 * 1000.0, _perf_cpu / 80.0 * 1000.0, _perf_render_cpu / 80.0, _perf_gpu / 80.0,
+			spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.kills, Game.headshots, Game.blocked, Game.melee_deaths])
+	if frame == Game.test_frames - 30:
+		# wide look at the allied line for the battlefield screenshot
+		Input.action_release("aim")
+		player.aim_at(Vector3(0.0, 1.0, -22.0))
+	if frame == Game.test_frames - 10 and Game.screenshot_path != "":
+		_screenshot(Game.screenshot_path.replace(".png", "_field.png"))
+		print("END enemies %d allies %d | kills %d headshots %d blocked %d melee deaths %d" % [
+			spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.kills, Game.headshots, Game.blocked, Game.melee_deaths])
+	if frame == Game.test_frames:
 		Input.action_release("aim")
 		get_tree().quit()
 
@@ -180,7 +191,7 @@ func _auto_test() -> void:
 func _ballistic_aim_point(k: Node3D) -> Vector3:
 	## Lead the target and hold over for bullet drop (debug aim bot).
 	var origin: Vector3 = player.camera.global_position
-	var target: Vector3 = k.global_position + Vector3(0, 1.1, 0)
+	var target: Vector3 = k.global_position + Vector3(0, 1.55, 0)  # head height
 	var t := origin.distance_to(target) / 170.0
 	var vel: Vector3 = k.velocity
 	target += vel * t
@@ -196,7 +207,7 @@ func _nearest_knight(want_dead: bool = false) -> Node3D:
 	var eye: Vector3 = player.camera.global_position
 	var muzzle: Vector3 = player.muzzle.global_position
 	for k in get_tree().get_nodes_in_group("knight"):
-		if k.dead != want_dead:
+		if k.dead != want_dead or k.faction != Game.Faction.ENEMY:
 			continue
 		var d: float = k.global_position.distance_to(player.global_position)
 		if d >= bd or (d < 30.0 and not want_dead):
