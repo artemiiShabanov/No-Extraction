@@ -84,6 +84,7 @@ func _physics_process(delta: float) -> void:
 	var bob := Vector3(sin(bob_time) * 0.012, abs(cos(bob_time)) * 0.008, 0.0) * planar / walk_speed * (1.0 - eased)
 	rifle_holder.position = HIP_POS.lerp(ADS_POS, eased) + bob + Vector3(0, 0, rifle_kick)
 	rifle_holder.rotation = HIP_ROT * (1.0 - eased) + Vector3(recoil_pitch * 0.5, 0, 0)
+	rifle_holder.visible = aim_blend < 0.75  # the scope overlay replaces the model when fully aimed
 	camera.rotation.x += recoil_pitch * delta * 4.0
 
 

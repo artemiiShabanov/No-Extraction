@@ -44,8 +44,15 @@ MAT = {
 parts = []
 
 
+# Coordinates below are authored with the character facing -Y (Blender "front").
+# glTF export maps Blender -Y to +Z, which is *backwards* for Godot, so every
+# Y coordinate and every X rotation is mirrored here to make the export face -Z.
+FLIP = -1.0
+
+
 def box(name, size, center, bone, material):
-    """Axis aligned box. size=(x,y,z) full extents, center=(x,y,z). Character faces -Y."""
+    """Axis aligned box. size=(x,y,z) full extents, center=(x,y,z) authored with front at -Y."""
+    center = (center[0], center[1] * FLIP, center[2])
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=center)
     o = bpy.context.active_object
     o.name = name
@@ -177,7 +184,7 @@ def start_action(name, frame_end):
 def key(bone_name, frame, rot=None, loc=None):
     pb = arm.pose.bones[bone_name]
     if rot is not None:
-        pb.rotation_euler = deg(*rot)
+        pb.rotation_euler = deg(rot[0] * FLIP, rot[1], rot[2])
         pb.keyframe_insert("rotation_euler", frame=frame)
     if loc is not None:
         pb.location = loc

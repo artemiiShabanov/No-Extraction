@@ -34,8 +34,17 @@ MAT = {
 parts = []
 
 
+# Parts are authored with the barrel along -Y. glTF export maps Blender -Y to +Z,
+# which points backwards in Godot, so Y is mirrored to make the barrel face -Z.
+FLIP = -1.0
+
+
+def _flip(center):
+    return (center[0], center[1] * FLIP, center[2])
+
+
 def box(name, size, center, material):
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=center)
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=_flip(center))
     o = bpy.context.active_object
     o.name = name
     o.scale = size
@@ -46,7 +55,7 @@ def box(name, size, center, material):
 
 
 def cyl(name, radius, length, center, material, axis="Y", verts=10):
-    bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=radius, depth=length, location=center)
+    bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=radius, depth=length, location=_flip(center))
     o = bpy.context.active_object
     o.name = name
     if axis == "Y":
@@ -57,7 +66,7 @@ def cyl(name, radius, length, center, material, axis="Y", verts=10):
     return o
 
 
-# Origin at the grip. -Y is forward.
+# Origin at the grip. Authored with -Y forward, mirrored on export (see FLIP).
 box("Receiver", (0.05, 0.42, 0.07), (0, -0.10, 0.02), "Metal")
 cyl("Barrel", 0.013, 0.62, (0, -0.60, 0.035), "Metal")
 cyl("BarrelShroud", 0.02, 0.14, (0, -0.36, 0.035), "Metal")
@@ -89,7 +98,7 @@ bpy.ops.object.shade_flat()
 
 # muzzle marker
 muzzle = bpy.data.objects.new("Muzzle", None)
-muzzle.location = (0, -0.91, 0.035)
+muzzle.location = _flip((0, -0.91, 0.035))
 bpy.context.scene.collection.objects.link(muzzle)
 muzzle.parent = rifle
 
