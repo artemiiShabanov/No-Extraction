@@ -80,7 +80,7 @@ HEAD_BOTTOM = 1.40
 # legs
 for side, sx in (("L", 0.13), ("R", -0.13)):
     box(f"UpperLeg.{side}", (0.20, 0.22, HIP - KNEE), (sx, 0.0, (HIP + KNEE) / 2), f"UpperLeg.{side}", "Leather")
-    box(f"LowerLeg.{side}", (0.18, 0.20, KNEE - 0.06), (sx, 0.0, (KNEE + 0.06) / 2), f"LowerLeg.{side}", "Armor")
+    box(f"LowerLeg.{side}", (0.18, 0.20, KNEE - 0.06 + 0.04), (sx, 0.0, (KNEE + 0.06) / 2 + 0.02), f"LowerLeg.{side}", "Armor")
     box(f"Foot.{side}", (0.19, 0.30, 0.10), (sx, -0.04, 0.05), f"LowerLeg.{side}", "Dark")
 
 # pelvis + torso
@@ -93,8 +93,9 @@ box("Belt", (0.58, 0.36, 0.06), (0.0, 0.0, 0.98), "Spine", "Dark")
 box("Head", (0.36, 0.36, 0.38), (0.0, 0.0, HEAD_BOTTOM + 0.19), "Head", "Skin")
 box("HelmetTop", (0.42, 0.42, 0.14), (0.0, 0.0, HEAD_BOTTOM + 0.36), "Head", "Armor")
 box("HelmetBack", (0.42, 0.20, 0.30), (0.0, 0.11, HEAD_BOTTOM + 0.17), "Head", "Armor")
-box("HelmetSideL", (0.04, 0.42, 0.28), (0.20, 0.0, HEAD_BOTTOM + 0.18), "Head", "Armor")
-box("HelmetSideR", (0.04, 0.42, 0.28), (-0.20, 0.0, HEAD_BOTTOM + 0.18), "Head", "Armor")
+box("HelmetSideL", (0.05, 0.42, 0.28), (0.19, 0.0, HEAD_BOTTOM + 0.18), "Head", "Armor")
+box("HelmetSideR", (0.05, 0.42, 0.28), (-0.19, 0.0, HEAD_BOTTOM + 0.18), "Head", "Armor")
+box("Neck", (0.18, 0.18, 0.14), (0.0, 0.0, HEAD_BOTTOM - 0.03), "Head", "Skin")
 box("NoseGuard", (0.06, 0.05, 0.22), (0.0, -0.20, HEAD_BOTTOM + 0.16), "Head", "Armor")
 
 # arms: authored hanging down, relative to the shoulder joint. In T-pose mode the
@@ -112,19 +113,56 @@ def arm_box(name, size, rel, side, bone, material):
 
 for side in ("L", "R"):
     arm_box(f"Pauldron.{side}", (0.24, 0.30, 0.16), (0.0, 0.0, 0.02), side, f"UpperArm.{side}", "Armor")
-    arm_box(f"UpperArm.{side}", (0.17, 0.18, 0.30), (0.0, 0.0, -0.17), side, f"UpperArm.{side}", "Tunic")
+    arm_box(f"UpperArm.{side}", (0.17, 0.18, 0.36), (0.0, 0.0, -0.18), side, f"UpperArm.{side}", "Tunic")
     arm_box(f"LowerArm.{side}", (0.15, 0.16, 0.30), (0.0, 0.0, -0.47), side, f"LowerArm.{side}", "Leather")
     arm_box(f"Hand.{side}", (0.14, 0.14, 0.12), (0.0, 0.0, -0.66), side, f"LowerArm.{side}", "Skin")
 
 # weapons (sword, shield) are separate models attached to bones in Godot, see build_weapons.py
 
-# join into one mesh
-bpy.ops.object.select_all(action="DESELECT")
-for o in parts:
-    o.select_set(True)
-bpy.context.view_layer.objects.active = parts[0]
-bpy.ops.object.join()
-mesh = bpy.context.active_object
+# join into one mesh. For Mixamo the parts are boolean-unioned into one
+# watertight shell: the auto-rigger fails on a cloud of disconnected boxes.
+if MIXAMO_OUT:
+    base = parts[0]
+    for o in parts[1:]:
+        mod = base.modifiers.new("union", "BOOLEAN")
+        mod.operation = "UNION"
+        mod.solver = "EXACT"
+        mod.object = o
+        bpy.context.view_layer.objects.active = base
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+        bpy.data.objects.remove(o)
+    mesh = base
+    bpy.context.view_layer.objects.active = mesh
+    # cleanup: merge doubles, recalc normals, report connectivity
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.remove_doubles(threshold=0.0005)
+    bpy.ops.mesh.normals_make_consistent(inside=False)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(mesh.data)
+    parent = list(range(len(bm.verts)))
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+    for e in bm.edges:
+        a, b = find(e.verts[0].index), find(e.verts[1].index)
+        if a != b:
+            parent[a] = b
+    comps = len({find(i) for i in range(len(bm.verts))})
+    non_manifold = sum(1 for e in bm.edges if not e.is_manifold)
+    bm.free()
+    print(f"MESH verts={len(mesh.data.vertices)} faces={len(mesh.data.polygons)} components={comps} non_manifold_edges={non_manifold}")
+else:
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in parts:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = parts[0]
+    bpy.ops.object.join()
+    mesh = bpy.context.active_object
 mesh.name = "KnightMesh"
 bpy.ops.object.shade_flat()
 # join() keeps the first part's origin; put the pivot at the world origin between the feet
