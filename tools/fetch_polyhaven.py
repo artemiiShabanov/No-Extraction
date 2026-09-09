@@ -27,12 +27,20 @@ ASSETS = {
 MAPS = {"Diffuse": "diffuse", "nor_gl": "normal", "arm": "arm"}
 
 
+HEADERS = {"User-Agent": "no-extraction-asset-fetch/1.0"}  # the API rejects requests without one
+
+
+def get(url):
+    return urllib.request.urlopen(urllib.request.Request(url, headers=HEADERS))
+
+
 def fetch(url, dest):
     if os.path.exists(dest):
         print("  exists", os.path.basename(dest))
         return
     print("  %s -> %s" % (url, os.path.relpath(dest, ROOT)))
-    urllib.request.urlretrieve(url, dest)
+    with get(url) as r, open(dest, "wb") as f:
+        f.write(r.read())
 
 
 def main(ids):
@@ -40,7 +48,7 @@ def main(ids):
     for asset_id in ids:
         kind = ASSETS[asset_id]
         print(asset_id)
-        with urllib.request.urlopen("https://api.polyhaven.com/files/" + asset_id) as r:
+        with get("https://api.polyhaven.com/files/" + asset_id) as r:
             files = json.load(r)
         if kind == "hdri":
             entry = files["hdri"][RES]["hdr"]

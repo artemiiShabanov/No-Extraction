@@ -60,12 +60,13 @@ func _build() -> void:
 			var b := a + 1
 			var c := a + n
 			var d := c + 1
+			# Godot front faces wind clockwise when seen from the front (+Y here)
 			st.add_index(a)
-			st.add_index(c)
-			st.add_index(b)
 			st.add_index(b)
 			st.add_index(c)
+			st.add_index(b)
 			st.add_index(d)
+			st.add_index(c)
 	st.generate_tangents()
 	var mesh := st.commit()
 	mesh_instance = MeshInstance3D.new()
