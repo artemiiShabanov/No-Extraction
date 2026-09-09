@@ -8,7 +8,7 @@ extends CanvasLayer
 
 const KEYS := {
 	"debug_menu": KEY_F1, "debug_freecam": KEY_F2, "debug_hitboxes": KEY_F3,
-	"debug_spawn": KEY_F5, "debug_kill_all": KEY_F6, "debug_bookmark": KEY_F11, "debug_screenshot": KEY_F12,
+	"debug_spawn": KEY_F5, "debug_kill_all": KEY_F6, "debug_next_wave": KEY_F7, "debug_bookmark": KEY_F11, "debug_screenshot": KEY_F12,
 }
 const ZONE_COLORS := {"head": Color(1, 0.2, 0.2, 0.35), "torso": Color(1, 0.6, 0.1, 0.3), "limb": Color(0.3, 0.6, 1, 0.3), "shield": Color(1, 1, 0.2, 0.35)}
 
@@ -72,6 +72,7 @@ func _build_ui() -> void:
 	_button(box, "F5  +10 врагов у стены", spawn_enemies.bind(10))
 	_button(box, "      +5 союзников", spawn_allies.bind(5))
 	_button(box, "F6  Убить всех врагов", kill_all_enemies)
+	_button(box, "F7  Следующая волна", next_wave)
 	_button(box, "Бесконечные патроны", toggle_infinite_ammo)
 	_button(box, "Статистика вкл/выкл", func(): show_stats = not show_stats)
 	var row := HBoxContainer.new()
@@ -120,6 +121,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		spawn_enemies(10)
 	elif event.is_action_pressed("debug_kill_all"):
 		kill_all_enemies()
+	elif event.is_action_pressed("debug_next_wave"):
+		next_wave()
 	elif event.is_action_pressed("debug_bookmark"):
 		bookmark()
 	elif event.is_action_pressed("debug_screenshot"):
@@ -263,6 +266,12 @@ func kill_all_enemies() -> void:
 			k.hit_zone("head", k.global_position + Vector3(0, 1.5, 0), Vector3(0, 2, -6))
 
 
+func next_wave() -> void:
+	var w := get_tree().current_scene.get_node_or_null("Waves")
+	if w:
+		w.start_next_wave()
+
+
 func restart_scene() -> void:
 	Engine.time_scale = 1.0
 	Game.kills = 0
@@ -315,6 +324,7 @@ func bookmark() -> void:
 	var state := {
 		"note": note.text, "time": stamp, "scene": get_tree().current_scene.scene_file_path,
 		"kills": Game.kills, "headshots": Game.headshots, "blocked": Game.blocked, "melee_deaths": Game.melee_deaths,
+		"run_seed": Game.run_seed, "wave": (get_tree().current_scene.get_node("Waves").wave_index + 1) if get_tree().current_scene.has_node("Waves") else 0,
 		"time_scale": Engine.time_scale, "fps": Engine.get_frames_per_second(),
 	}
 	if player:

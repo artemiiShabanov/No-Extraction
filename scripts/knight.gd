@@ -11,6 +11,11 @@ extends CharacterBody3D
 @export var max_hp := 2  # bullet damage: head = kill, torso = 2, limb = 1, shield = 0
 @export var melee_hp := 3
 @export var melee_hit_chance := 0.5
+@export var has_shield := true
+@export var priority := false  # priority target: its death lets the wave rout
+var type_id := "swordsman"
+var fleeing := false
+var flee_to := Vector3.ZERO
 
 const SwordScene := preload("res://assets/models/sword.glb")
 const ShieldScene := preload("res://assets/models/shield.glb")
@@ -82,6 +87,32 @@ var skel: Skeleton3D
 var body_mesh: MeshInstance3D
 var hitboxes: Array[Area3D] = []
 var wobble_phase := randf() * TAU
+var _spec_speed := -1.0
+
+
+## Configure from an enemy type spec (data/enemy_types.json). Call before adding to the tree.
+func apply_spec(spec: Dictionary, r: RandomNumberGenerator) -> void:
+	type_id = spec.get("id", "swordsman")
+	max_hp = int(spec.get("hp", 2))
+	melee_hp = int(spec.get("melee_hp", 3))
+	var sp: Array = spec.get("speed", [5.0, 7.0])
+	_spec_speed = r.randf_range(float(sp[0]), float(sp[1]))
+	tunic_color = Color.html(spec.get("tunic", "#bf1f1a"))
+	has_shield = bool(spec.get("shield", true))
+	priority = bool(spec.get("priority", false))
+	scale = Vector3.ONE * float(spec.get("scale", 1.0))
+	flee_to = spec.get("flee_to", Vector3(0, 0, -200))
+
+
+func flee() -> void:
+	## Rout: drop the fight and run back to where we came from, then despawn.
+	if dead:
+		return
+	fleeing = true
+	melee_target = null
+	attacking = false
+	hold = false
+	collision_layer = 0  # no longer a target for duel pairing; bullets still hit hitboxes
 
 
 func _ready() -> void:
@@ -101,14 +132,14 @@ func _ready() -> void:
 				break
 	_apply_palette()
 	_attach_prop(RIGHT_HAND_BONE, SwordScene, Vector3(0.0, 0.06, 0.0))
-	var shield_attachment := _attach_prop(LEFT_ARM_BONE, ShieldScene, SHIELD_OFFSET)
+	var shield_attachment: BoneAttachment3D = _attach_prop(LEFT_ARM_BONE, ShieldScene, SHIELD_OFFSET) if has_shield else null
 	_build_hitboxes(shield_attachment)
 	if anim:
 		_install_animations()
 		anim.speed_scale = randf_range(0.9, 1.15)
 		attack_period = anim.get_animation("Attack").length / anim.speed_scale if anim.has_animation("Attack") else 1.4
 		_play_loop("Idle" if hold else "Run")
-	speed *= randf_range(0.9, 1.1)
+	speed = _spec_speed if _spec_speed > 0.0 else speed * randf_range(0.9, 1.1)
 
 
 # ------------------------------------------------------------------ setup
@@ -232,6 +263,21 @@ func _physics_process(delta: float) -> void:
 		attacking = false
 	var goal: Vector3
 	var engage_range := 1.6
+	if fleeing:
+		var away := flee_to - global_position
+		away.y = 0.0
+		if away.length() < 6.0 or global_position.z < -220.0:
+			queue_free()
+			return
+		var fdir := away.normalized()
+		velocity.x = fdir.x * speed * 1.15
+		velocity.z = fdir.z * speed * 1.15
+		_face(fdir, delta)
+		_play_loop("Run")
+		if not is_on_floor():
+			velocity.y -= 9.8 * delta
+		move_and_slide()
+		return
 	if melee_target:
 		goal = melee_target.global_position
 		engage_range = 1.9

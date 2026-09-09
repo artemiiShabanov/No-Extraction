@@ -1,0 +1,14 @@
+{
+  "swordsman": {
+    "label": "Мечник", "cost": 1.0, "hp": 2, "melee_hp": 3, "speed": [5.0, 7.0],
+    "tunic": "#bf1f1a", "shield": true, "scale": 1.0, "priority": false
+  },
+  "berserker": {
+    "label": "Берсерк", "cost": 1.5, "hp": 2, "melee_hp": 4, "speed": [7.5, 9.0],
+    "tunic": "#2a2a2e", "shield": false, "scale": 1.0, "priority": false
+  },
+  "captain": {
+    "label": "Капитан", "cost": 6.0, "hp": 4, "melee_hp": 6, "speed": [5.0, 6.0],
+    "tunic": "#d9a520", "shield": true, "scale": 1.15, "priority": true
+  }
+}

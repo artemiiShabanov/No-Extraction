@@ -5,6 +5,7 @@ const PlayerScene := preload("res://scenes/player.tscn")
 
 var player: CharacterBody3D
 var spawner: Node3D
+var waves: WaveManager
 var hud: Label
 var scope: Control
 var frame := 0
@@ -13,6 +14,7 @@ var _perf_cpu := 0.0
 var _perf_gpu := 0.0
 var _perf_render_cpu := 0.0
 var _kill_frame := -1
+var _cleared_frames := 0
 
 
 func _ready() -> void:
@@ -32,10 +34,17 @@ func _ready() -> void:
 	spawner = Node3D.new()
 	spawner.name = "Spawner"
 	spawner.set_script(load("res://scripts/spawner.gd"))
-	if Game.auto_test:
-		spawner.spawn_z_min = -110.0
-		spawner.spawn_z_max = -50.0
 	add_child(spawner)
+	waves = WaveManager.new()
+	waves.name = "Waves"
+	waves.spawner = spawner
+	if Game.auto_test:
+		# smaller waves, spawned close to the wall so the aim bot can finish them
+		waves.budget_scale = 0.35
+		for lane in ["left", "center", "right"]:
+			waves.lane_override[lane] = {"spawn_z": [-110, -60]}
+		waves.lane_override["flank"] = {"spawn_z": [-70, -40]}
+	add_child(waves)
 
 	player = PlayerScene.instantiate()
 	player.position = Vector3(15.0, 10.1, 0.0)
@@ -120,9 +129,11 @@ func _build_hud() -> void:
 
 func _process(_delta: float) -> void:
 	frame += 1
-	hud.text = "AMMO %d / %d    [R] reload\nKILLS %d  (headshots %d, blocked by shields %d, allies hit %d)\nENEMIES %d   ALLIES %d   melee deaths %d\nFPS %d" % [
-		player.ammo, player.magazine_size, Game.kills, Game.headshots, Game.blocked, Game.ally_kills,
+	hud.text = "%s\nAMMO %d / %d    [R] reload\nKILLS %d  (headshots %d, blocked by shields %d, allies hit %d)\nENEMIES %d   ALLIES %d   melee deaths %d\nFPS %d" % [
+		waves.status_text(), player.ammo, player.magazine_size, Game.kills, Game.headshots, Game.blocked, Game.ally_kills,
 		spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.melee_deaths, Engine.get_frames_per_second()]
+	if Input.is_action_just_pressed("next_wave") and not Debug.input_blocked():
+		waves.start_next_wave()
 	if Game.auto_test:
 		_auto_test()
 
@@ -148,6 +159,14 @@ func _auto_test() -> void:
 		release.pressed = false
 		Input.parse_input_event(release)
 		player.ammo = player.magazine_size
+	# waves: start immediately, and start the next one 3 s after a wave is cleared
+	if frame == 5:
+		waves.start_next_wave()
+	if waves.state == WaveManager.State.CLEARED:
+		_cleared_frames += 1
+		if _cleared_frames > 180:
+			_cleared_frames = 0
+			waves.start_next_wave()
 	# debug tools smoke test: hitbox overlay + menu visible on one screenshot
 	if frame == 150:
 		Debug.toggle_hitboxes()
@@ -164,7 +183,7 @@ func _auto_test() -> void:
 			player.aiming = true
 	if frame == 250:
 		Input.action_press("aim")
-	if frame >= 260 and frame % 40 == 0 and frame <= 500:
+	if frame >= 260 and frame % 40 == 0 and frame <= Game.test_frames - 60:
 		var k := _nearest_knight()
 		if k:
 			player.aim_at(_ballistic_aim_point(k))
