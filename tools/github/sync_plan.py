@@ -103,8 +103,8 @@ def sync_github(plan, dry_run):
     for ph in plan["phases"]:
         if ph["title"] in milestones:
             continue
-        gh(["api", "repos/{owner}/{repo}/milestones", "-f", "title=" + ph["title"], "-f", "description=" + ph["goal"],
-            "-f", "state=" + ("closed" if ph.get("status") == "done" else "open")], dry_run)
+        # always create open: gh can only attach issues to open milestones; done phases are closed below
+        gh(["api", "repos/{owner}/{repo}/milestones", "-f", "title=" + ph["title"], "-f", "description=" + ph["goal"]], dry_run)
     # issues
     existing_titles = set()
     if not dry_run:
@@ -122,6 +122,15 @@ def sync_github(plan, dry_run):
             out = gh(args, dry_run, capture=True)
             if i.get("done") and out.strip():
                 gh(["issue", "close", out.strip().rsplit("/", 1)[-1]], dry_run)
+    # close milestones of finished phases (after their issues exist)
+    if not dry_run:
+        raw = gh(["api", "repos/{owner}/{repo}/milestones?state=all&per_page=100"], dry_run, capture=True)
+        milestones = {m["title"]: m for m in json.loads(raw or "[]")}
+    for ph in plan["phases"]:
+        m = milestones.get(ph["title"]) if not dry_run else None
+        if ph.get("status") == "done" and (dry_run or (m and m["state"] == "open")):
+            num = str(m["number"]) if m else "<number>"
+            gh(["api", "-X", "PATCH", "repos/{owner}/{repo}/milestones/" + num, "-f", "state=closed"], dry_run)
 
 
 def main():
