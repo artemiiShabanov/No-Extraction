@@ -137,6 +137,7 @@
 - `owner: artemii` `#c2e0c6` — Делает Артемий
 - `owner: claude` `#bfd4f2` — Делает Claude
 - `owner: both` `#e6d7f5` — Совместно
+- `status: needs decision` `#b60205` — Нужно решение Артемия по дизайну
 - `status: in progress` `#fef2c0` — В работе
 - `status: blocked` `#d93f0b` — Заблокировано
 - `status: needs playtest` `#d4c5f9` — Готово, ждёт проверки в игре

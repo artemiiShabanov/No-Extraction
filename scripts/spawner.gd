@@ -30,7 +30,7 @@ var rng := RandomNumberGenerator.new()
 func _ready() -> void:
 	rng.seed = 42
 	for i in ally_count:
-		_spawn_ally()
+		spawn_ally()
 
 
 func _process(delta: float) -> void:
@@ -47,13 +47,16 @@ func _process(delta: float) -> void:
 	for i in batch:
 		if spawned >= count:
 			break
-		_spawn_enemy()
+		spawn_enemy()
 
 
-func _spawn_enemy() -> void:
+func spawn_enemy(at: Variant = null) -> void:
 	var k := KnightScene.instantiate()
 	var x := rng.randf_range(-spawn_x_half, spawn_x_half)
 	var z := rng.randf_range(spawn_z_min, spawn_z_max)
+	if at != null:
+		x = at.x
+		z = at.z
 	k.position = Vector3(x, _ground(x, z) + 0.2, z)
 	# a third of them go for the gate, the rest spread along the wall
 	var tx: float = clampf(x * 0.6, -wall_x_half, wall_x_half)
@@ -67,10 +70,13 @@ func _spawn_enemy() -> void:
 	spawned += 1
 
 
-func _spawn_ally() -> void:
+func spawn_ally(at: Variant = null) -> void:
 	var k := KnightScene.instantiate()
 	var x := rng.randf_range(-wall_x_half, wall_x_half)
 	var z := rng.randf_range(ally_z_min, ally_z_max)
+	if at != null:
+		x = at.x
+		z = at.z
 	k.position = Vector3(x, _ground(x, z) + 0.2, z)
 	k.target = k.position
 	k.hold = true

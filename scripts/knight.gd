@@ -201,6 +201,7 @@ func _make_hitbox(size: Vector3, offset: Vector3, zone: String) -> Area3D:
 	area.monitoring = false
 	area.set_meta("knight", self)
 	area.set_meta("zone", zone)
+	area.add_to_group("hitbox")
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = size
@@ -208,6 +209,8 @@ func _make_hitbox(size: Vector3, offset: Vector3, zone: String) -> Area3D:
 	shape.position = offset
 	area.add_child(shape)
 	hitboxes.append(area)
+	if Debug.show_hitboxes:
+		Debug.decorate_hitbox.call_deferred(area)
 	return area
 
 

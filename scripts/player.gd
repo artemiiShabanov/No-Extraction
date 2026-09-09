@@ -41,6 +41,8 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if Debug.input_blocked():
+		return
 	if event is InputEventMouseMotion and mouse_captured:
 		var sens := mouse_sensitivity * (camera.fov / hip_fov)
 		rotate_y(-event.relative.x * sens)
@@ -56,7 +58,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	# movement
-	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var input_dir := Vector2.ZERO if Debug.input_blocked() else Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var dir := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 	var speed := sprint_speed if Input.is_action_pressed("sprint") and not aiming else walk_speed
 	if aiming:
@@ -70,7 +72,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	# aiming
-	aiming = Input.is_action_pressed("aim") and mouse_captured
+	aiming = Input.is_action_pressed("aim") and mouse_captured and not Debug.input_blocked()
 	aim_blend = move_toward(aim_blend, 1.0 if aiming else 0.0, delta * 6.0)
 	var eased := smoothstep(0.0, 1.0, aim_blend)
 	camera.fov = lerp(hip_fov, ads_fov, eased)
@@ -91,7 +93,8 @@ func _physics_process(delta: float) -> void:
 func try_fire() -> void:
 	if fire_cooldown > 0.0 or ammo <= 0:
 		return
-	ammo -= 1
+	if not Debug.infinite_ammo:
+		ammo -= 1
 	fire_cooldown = bolt_time
 	recoil_pitch += 0.09
 	rifle_kick += 0.07

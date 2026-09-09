@@ -20,6 +20,7 @@ labels:
     "owner: claude":  {color: "bfd4f2", desc: "Делает Claude"}
     "owner: both":    {color: "e6d7f5", desc: "Совместно"}
   status:
+    "status: needs decision": {color: "b60205", desc: "Нужно решение Артемия по дизайну"}
     "status: in progress": {color: "fef2c0", desc: "В работе"}
     "status: blocked":     {color: "d93f0b", desc: "Заблокировано"}
     "status: needs playtest": {color: "d4c5f9", desc: "Готово, ждёт проверки в игре"}

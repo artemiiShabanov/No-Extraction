@@ -148,6 +148,15 @@ func _auto_test() -> void:
 		release.pressed = false
 		Input.parse_input_event(release)
 		player.ammo = player.magazine_size
+	# debug tools smoke test: hitbox overlay + menu visible on one screenshot
+	if frame == 150:
+		Debug.toggle_hitboxes()
+		Debug.set_menu_open(true)
+	if frame == 160 and Game.screenshot_path != "":
+		_screenshot(Game.screenshot_path.replace(".png", "_debug.png"))
+	if frame == 170:
+		Debug.set_menu_open(false)
+		Debug.toggle_hitboxes()
 	if frame == 240:
 		var k := _nearest_knight()
 		if k:

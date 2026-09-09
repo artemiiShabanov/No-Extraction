@@ -1,7 +1,7 @@
 extends Node3D
 ## Debug scene: one knight standing in Idle. Rays are cast at its head, shield and chest to
 ## verify hit zones, then a head shot must ragdoll it.
-## Run: Godot --path . res://scenes/knight_test.tscn -- --screenshot=/tmp/kt.png
+## Run: Godot --path . res://debug/knight_test.tscn -- --screenshot=/tmp/kt.png
 
 const KnightScene := preload("res://scenes/knight.tscn")
 
