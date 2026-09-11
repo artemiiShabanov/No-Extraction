@@ -20,9 +20,23 @@ var gate_slot := -1
 var gate_retry := 0.0
 var idle_at_wall := 0.0
 var gate_damage := 2
+var ram: Node3D = null  # ram crew: follow the log instead of walking on our own
+var ram_offset := Vector3.ZERO
+var melee_hp_max := 3
+# captain aura (received): buffed while buff_until is in the future
+var buff_until := 0.0
+var aura_radius := 0.0
+var aura_speed := 1.0
+var aura_hit := 0.0
+var heal_every := 0.0
+var death_stagger := 0.0
+var aura_timer := 0.0
+var heal_timer := 0.0
 
 const SwordScene := preload("res://assets/models/sword.glb")
 const ShieldScene := preload("res://assets/models/shield.glb")
+const BannerScene := preload("res://assets/models/banner.glb")
+const PlumeScene := preload("res://assets/models/plume.glb")
 
 # animation name -> Mixamo file (each holds one clip named "mixamo_com")
 const ANIM_FILES := {
@@ -105,6 +119,13 @@ func apply_spec(spec: Dictionary, r: RandomNumberGenerator) -> void:
 	has_shield = bool(spec.get("shield", true))
 	priority = bool(spec.get("priority", false))
 	scale = Vector3.ONE * float(spec.get("scale", 1.0))
+	aura_radius = float(spec.get("aura_radius", 0.0))
+	aura_speed = float(spec.get("aura_speed", 1.0))
+	aura_hit = float(spec.get("aura_hit", 0.0))
+	heal_every = float(spec.get("heal_every", 0.0))
+	death_stagger = float(spec.get("death_stagger", 0.0))
+	heal_timer = heal_every
+	melee_hp_max = melee_hp
 	var cfg := WaveManager._load_json("res://data/castle.json")
 	gate_damage = int(cfg.get("gate_damage", {}).get(type_id, 2))
 	flee_to = spec.get("flee_to", Vector3(0, 0, -200))
@@ -150,6 +171,9 @@ func _ready() -> void:
 	_apply_palette()
 	_attach_prop(RIGHT_HAND_BONE, SwordScene, Vector3(0.0, 0.06, 0.0))
 	var shield_attachment: BoneAttachment3D = _attach_prop(LEFT_ARM_BONE, ShieldScene, SHIELD_OFFSET) if has_shield else null
+	if type_id == "captain":
+		_attach_prop("mixamorig_Spine2", BannerScene, Vector3(0.0, 0.05, -0.2), Vector3(0, 0, 0))
+		_attach_prop("mixamorig_Head", PlumeScene, Vector3(0.0, 0.42, 0.0))
 	_build_hitboxes(shield_attachment)
 	if anim:
 		_install_animations()
@@ -214,16 +238,72 @@ func _apply_palette() -> void:
 			break
 
 
-func _attach_prop(bone_name: String, scene: PackedScene, offset: Vector3) -> BoneAttachment3D:
+func _attach_prop(bone_name: String, scene: PackedScene, offset: Vector3, rot: Vector3 = Vector3.ZERO) -> BoneAttachment3D:
 	if skel == null or skel.find_bone(bone_name) < 0:
 		return null
 	var attachment := BoneAttachment3D.new()
 	attachment.bone_name = bone_name
 	skel.add_child(attachment)
-	var prop := scene.instantiate()
+	var prop: Node3D = scene.instantiate()
 	prop.position = offset
+	prop.rotation = rot
 	attachment.add_child(prop)
+	if scene == BannerScene or scene == PlumeScene:
+		_tint_prop(prop, ["Flag", "Plume"], tunic_color)
 	return attachment
+
+
+func _tint_prop(prop: Node, names: Array, color: Color) -> void:
+	for mi in prop.find_children("*", "MeshInstance3D", true, false):
+		for i in mi.mesh.get_surface_count():
+			var m: Material = mi.mesh.surface_get_material(i)
+			if m and m.resource_name in names:
+				var mat := StandardMaterial3D.new()
+				mat.albedo_color = color
+				mat.roughness = 0.9
+				mi.set_surface_override_material(i, mat)
+
+
+func is_buffed() -> bool:
+	return buff_until > Time.get_ticks_msec() / 1000.0
+
+
+func _captain_aura(delta: float) -> void:
+	## Captain: nearby comrades move faster and hit harder; every heal_every seconds they mend 1 HP.
+	aura_timer -= delta
+	heal_timer -= delta
+	if aura_timer > 0.0:
+		return
+	aura_timer = 0.5
+	var heal := heal_timer <= 0.0
+	if heal:
+		heal_timer = heal_every
+	var now := Time.get_ticks_msec() / 1000.0
+	var r2 := aura_radius * aura_radius
+	for k in get_tree().get_nodes_in_group("knight"):
+		if k == self or k.dead or k.faction != faction or k.fleeing:
+			continue
+		if global_position.distance_squared_to(k.global_position) > r2:
+			continue
+		k.buff_until = now + 0.7
+		if heal and (k.hp < k.max_hp or k.melee_hp < k.melee_hp_max):
+			k.hp = mini(k.hp + 1, k.max_hp)
+			k.melee_hp = mini(k.melee_hp + 1, k.melee_hp_max)
+			k.slow = 1.0
+			var BulletScript := load("res://scripts/bullet.gd")
+			BulletScript.spawn_puff(get_tree().current_scene, k.global_position + Vector3(0, 1.0, 0), Vector3.UP, Color(1.0, 0.85, 0.3, 0.9), 12, 0.2)
+
+
+func _captain_died() -> void:
+	## The banner falls: comrades nearby freeze for a moment.
+	var r2 := aura_radius * aura_radius
+	for k in get_tree().get_nodes_in_group("knight"):
+		if k == self or k.dead or k.faction != faction:
+			continue
+		if global_position.distance_squared_to(k.global_position) <= r2:
+			k.stagger = max(k.stagger, death_stagger)
+			k.attacking = false
+			k._play_loop("Idle")
 
 
 func _build_hitboxes(shield_attachment: BoneAttachment3D) -> void:
@@ -274,7 +354,14 @@ func _play_loop(anim_name: String) -> void:
 func _physics_process(delta: float) -> void:
 	if dead:
 		return
+	if aura_radius > 0.0:
+		_captain_aura(delta)
 	stagger = max(stagger - delta, 0.0)
+	if ram != null and not is_instance_valid(ram):
+		ram = null
+	if ram:
+		_follow_ram(delta)
+		return
 	if melee_target and (not is_instance_valid(melee_target) or melee_target.dead):
 		melee_target = null
 		attacking = false
@@ -364,11 +451,35 @@ func _physics_process(delta: float) -> void:
 		wobble_phase += delta
 		var dir := to.normalized()
 		var side := dir.cross(Vector3.UP) * sin(wobble_phase * 0.7) * 0.25
-		var move := (dir + side).normalized() * speed * slow
+		var move := (dir + side).normalized() * speed * slow * (aura_speed_of_buff() if is_buffed() else 1.0)
 		velocity.x = move.x
 		velocity.z = move.z
 		_face(dir, delta)
 		_play_loop("Run")
+	if not is_on_floor():
+		velocity.y -= 9.8 * delta
+	else:
+		velocity.y = 0.0
+	move_and_slide()
+
+
+func _follow_ram(delta: float) -> void:
+	## Ram carrier: keep our handle position beside the log.
+	var goal: Vector3 = ram.global_position + ram.global_transform.basis * ram_offset
+	var to := goal - global_position
+	to.y = 0.0
+	var dist := to.length()
+	if dist > 0.15:
+		var v := clampf(dist * 6.0, 0.0, speed * 1.4)
+		velocity.x = to.normalized().x * v
+		velocity.z = to.normalized().z * v
+		_play_loop("Run" if dist > 0.4 or not ram.at_gate else "Attack")
+	else:
+		velocity.x = 0
+		velocity.z = 0
+		_play_loop("Attack" if ram.at_gate else "Run")
+	var facing: Vector3 = ram.global_transform.basis.z
+	_face(facing, delta)
 	if not is_on_floor():
 		velocity.y -= 9.8 * delta
 	else:
@@ -383,10 +494,15 @@ func _face(dir: Vector3, delta: float) -> void:
 	rotation.y = lerp_angle(rotation.y, yaw, delta * 8.0)
 
 
+func aura_speed_of_buff() -> float:
+	return 1.15
+
+
 func take_melee_hit(attacker: CharacterBody3D) -> void:
 	if dead:
 		return
-	if randf() > melee_hit_chance:
+	var chance := melee_hit_chance + (0.15 if attacker.is_buffed() else 0.0)
+	if randf() > chance:
 		return
 	melee_hp -= 1
 	var pos := global_position + Vector3(0, 1.1, 0)
@@ -422,6 +538,8 @@ func hit_zone(zone: String, pos: Vector3, impulse: Vector3) -> String:
 			Game.award("kill")
 			if priority:
 				Game.award("priority")
+			if death_stagger > 0.0:
+				_captain_died()
 		Game.last_kill = self
 		_ragdoll(pos, impulse * (1.6 if zone == "head" else 1.0))
 	else:
@@ -438,6 +556,7 @@ func hit(pos: Vector3, impulse: Vector3, _bullet: Node) -> void:
 func _mark_dead() -> void:
 	dead = true
 	melee_target = null
+	ram = null
 	_leave_gate()
 	collision_layer = 0
 	collision_mask = 0

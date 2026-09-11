@@ -1,35 +1,279 @@
 {
   "version": 1,
-  "notes": "budget = очки на рядовую пехоту (стоимость типов в enemy_types.json); beats не тратят бюджет. rout_ratio: доля выживших, при которой остаток бежит, если приоритетные цели мертвы.",
+  "notes": "budget = очки на рядовую пехоту (стоимость типов в enemy_types.json); beats не тратят бюджет. rout_ratio: доля выживших, при которой остаток бежит, если приоритетные цели мертвы. Тип ram спавнит бревно с расчётом из crew носильщиков (enemy_types.json).",
   "lanes": {
-    "left":   {"spawn_x": [-70, -35], "spawn_z": [-190, -150], "target_x": [-40, -10]},
-    "center": {"spawn_x": [-15, 15],  "spawn_z": [-200, -160], "target_x": [-3, 3]},
-    "right":  {"spawn_x": [35, 70],   "spawn_z": [-190, -150], "target_x": [10, 40]},
-    "flank":  {"spawn_x": [-125, -95], "spawn_z": [-70, -25],  "target_x": [-44, -30]}
+    "left": {
+      "spawn_x": [
+        -70,
+        -35
+      ],
+      "spawn_z": [
+        -190,
+        -150
+      ],
+      "target_x": [
+        -40,
+        -10
+      ]
+    },
+    "center": {
+      "spawn_x": [
+        -15,
+        15
+      ],
+      "spawn_z": [
+        -200,
+        -160
+      ],
+      "target_x": [
+        -3,
+        3
+      ]
+    },
+    "right": {
+      "spawn_x": [
+        35,
+        70
+      ],
+      "spawn_z": [
+        -190,
+        -150
+      ],
+      "target_x": [
+        10,
+        40
+      ]
+    },
+    "flank": {
+      "spawn_x": [
+        -125,
+        -95
+      ],
+      "spawn_z": [
+        -70,
+        -25
+      ],
+      "target_x": [
+        -44,
+        -30
+      ]
+    }
   },
   "waves": [
-    {"name": "Разведка", "budget": 12, "duration": 18, "rout_ratio": 0.25,
-     "weights": {"swordsman": 1.0}, "lanes": {"center": 1.0}, "beats": []},
-    {"name": "Первый штурм", "budget": 24, "duration": 28, "rout_ratio": 0.2,
-     "weights": {"swordsman": 1.0}, "lanes": {"left": 0.5, "right": 0.5}, "beats": []},
-    {"name": "Берсерки", "budget": 28, "duration": 30, "rout_ratio": 0.2,
-     "weights": {"swordsman": 0.7, "berserker": 0.3}, "lanes": {"center": 0.5, "left": 0.25, "right": 0.25},
-     "beats": [{"at": 8, "type": "berserker", "count": 6, "lane": "center"}]},
-    {"name": "Капитан", "budget": 34, "duration": 32, "rout_ratio": 0.2,
-     "weights": {"swordsman": 0.75, "berserker": 0.25}, "lanes": {"center": 0.4, "left": 0.3, "right": 0.3},
-     "beats": [{"at": 10, "type": "captain", "count": 1, "lane": "center"}]},
-    {"name": "Обход", "budget": 40, "duration": 34, "rout_ratio": 0.2,
-     "weights": {"swordsman": 0.7, "berserker": 0.3}, "lanes": {"left": 0.4, "right": 0.3, "flank": 0.3},
-     "beats": [{"at": 5, "type": "berserker", "count": 5, "lane": "flank"}, {"at": 16, "type": "captain", "count": 1, "lane": "left"}]},
-    {"name": "Два капитана", "budget": 46, "duration": 36, "rout_ratio": 0.2,
-     "weights": {"swordsman": 0.65, "berserker": 0.35}, "lanes": {"center": 0.4, "left": 0.3, "right": 0.3},
-     "beats": [{"at": 6, "type": "captain", "count": 1, "lane": "left"}, {"at": 14, "type": "captain", "count": 1, "lane": "right"}]},
-    {"name": "Натиск", "budget": 56, "duration": 38, "rout_ratio": 0.15,
-     "weights": {"swordsman": 0.5, "berserker": 0.5}, "lanes": {"center": 0.35, "left": 0.25, "right": 0.25, "flank": 0.15},
-     "beats": [{"at": 20, "type": "captain", "count": 1, "lane": "center"}]},
-    {"name": "Последний штурм", "budget": 70, "duration": 45, "rout_ratio": 0.1,
-     "weights": {"swordsman": 0.5, "berserker": 0.5}, "lanes": {"center": 0.35, "left": 0.25, "right": 0.25, "flank": 0.15},
-     "beats": [{"at": 5, "type": "captain", "count": 1, "lane": "center"}, {"at": 10, "type": "berserker", "count": 8, "lane": "flank"},
-               {"at": 15, "type": "captain", "count": 1, "lane": "left"}, {"at": 25, "type": "captain", "count": 1, "lane": "right"}]}
+    {
+      "name": "Разведка",
+      "budget": 12,
+      "duration": 18,
+      "rout_ratio": 0.25,
+      "weights": {
+        "swordsman": 1.0
+      },
+      "lanes": {
+        "center": 1.0
+      },
+      "beats": []
+    },
+    {
+      "name": "Первый штурм",
+      "budget": 24,
+      "duration": 28,
+      "rout_ratio": 0.2,
+      "weights": {
+        "swordsman": 1.0
+      },
+      "lanes": {
+        "left": 0.5,
+        "right": 0.5
+      },
+      "beats": []
+    },
+    {
+      "name": "Берсерки",
+      "budget": 28,
+      "duration": 30,
+      "rout_ratio": 0.2,
+      "weights": {
+        "swordsman": 0.7,
+        "berserker": 0.3
+      },
+      "lanes": {
+        "center": 0.5,
+        "left": 0.25,
+        "right": 0.25
+      },
+      "beats": [
+        {
+          "at": 8,
+          "type": "berserker",
+          "count": 6,
+          "lane": "center"
+        }
+      ]
+    },
+    {
+      "name": "Капитан",
+      "budget": 34,
+      "duration": 32,
+      "rout_ratio": 0.2,
+      "weights": {
+        "swordsman": 0.75,
+        "berserker": 0.25
+      },
+      "lanes": {
+        "center": 0.4,
+        "left": 0.3,
+        "right": 0.3
+      },
+      "beats": [
+        {
+          "at": 10,
+          "type": "captain",
+          "count": 1,
+          "lane": "center"
+        }
+      ]
+    },
+    {
+      "name": "Обход",
+      "budget": 40,
+      "duration": 34,
+      "rout_ratio": 0.2,
+      "weights": {
+        "swordsman": 0.7,
+        "berserker": 0.3
+      },
+      "lanes": {
+        "left": 0.4,
+        "right": 0.3,
+        "flank": 0.3
+      },
+      "beats": [
+        {
+          "at": 5,
+          "type": "berserker",
+          "count": 5,
+          "lane": "flank"
+        },
+        {
+          "at": 16,
+          "type": "captain",
+          "count": 1,
+          "lane": "left"
+        },
+        {
+          "at": 12,
+          "type": "ram",
+          "count": 1,
+          "lane": "center"
+        }
+      ]
+    },
+    {
+      "name": "Два капитана",
+      "budget": 46,
+      "duration": 36,
+      "rout_ratio": 0.2,
+      "weights": {
+        "swordsman": 0.65,
+        "berserker": 0.35
+      },
+      "lanes": {
+        "center": 0.4,
+        "left": 0.3,
+        "right": 0.3
+      },
+      "beats": [
+        {
+          "at": 6,
+          "type": "captain",
+          "count": 1,
+          "lane": "left"
+        },
+        {
+          "at": 14,
+          "type": "captain",
+          "count": 1,
+          "lane": "right"
+        }
+      ]
+    },
+    {
+      "name": "Натиск",
+      "budget": 56,
+      "duration": 38,
+      "rout_ratio": 0.15,
+      "weights": {
+        "swordsman": 0.5,
+        "berserker": 0.5
+      },
+      "lanes": {
+        "center": 0.35,
+        "left": 0.25,
+        "right": 0.25,
+        "flank": 0.15
+      },
+      "beats": [
+        {
+          "at": 20,
+          "type": "captain",
+          "count": 1,
+          "lane": "center"
+        },
+        {
+          "at": 8,
+          "type": "ram",
+          "count": 1,
+          "lane": "center"
+        }
+      ]
+    },
+    {
+      "name": "Последний штурм",
+      "budget": 70,
+      "duration": 45,
+      "rout_ratio": 0.1,
+      "weights": {
+        "swordsman": 0.5,
+        "berserker": 0.5
+      },
+      "lanes": {
+        "center": 0.35,
+        "left": 0.25,
+        "right": 0.25,
+        "flank": 0.15
+      },
+      "beats": [
+        {
+          "at": 5,
+          "type": "captain",
+          "count": 1,
+          "lane": "center"
+        },
+        {
+          "at": 10,
+          "type": "berserker",
+          "count": 8,
+          "lane": "flank"
+        },
+        {
+          "at": 15,
+          "type": "captain",
+          "count": 1,
+          "lane": "left"
+        },
+        {
+          "at": 25,
+          "type": "captain",
+          "count": 1,
+          "lane": "right"
+        },
+        {
+          "at": 20,
+          "type": "ram",
+          "count": 2,
+          "lane": "center"
+        }
+      ]
+    }
   ]
 }

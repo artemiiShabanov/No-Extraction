@@ -83,6 +83,40 @@ box(parts, mats, "RimBottom", (0.07, 0.54, 0.05), (0, 0, -0.31), "Dark")
 box(parts, mats, "Boss", (0.05, 0.16, 0.16), (0.05, 0, 0), "Armor")
 export(parts, "Shield")
 
+# Banner: pole up the back (Blender +Z = Godot +Y along the spine), flag to the side
+mats = reset()
+mats["Flag"] = make_mat("Flag", (0.85, 0.15, 0.12))
+parts = []
+box(parts, mats, "Pole", (0.05, 0.05, 1.7), (0, 0, 0.55), "Wood")
+box(parts, mats, "Finial", (0.09, 0.09, 0.09), (0, 0, 1.42), "Armor")
+box(parts, mats, "Flag", (0.6, 0.02, 0.42), (0.32, 0, 1.12), "Flag")
+box(parts, mats, "FlagTail", (0.2, 0.02, 0.2), (0.7, 0, 1.05), "Flag")
+export(parts, "Banner")
+
+# Plume: on top of the helmet, leaning back (Blender +Y = Godot -Z is forward, so back is -Y)
+mats = reset()
+mats["Plume"] = make_mat("Plume", (0.85, 0.15, 0.12))
+parts = []
+box(parts, mats, "Base", (0.08, 0.08, 0.08), (0, 0, 0.03), "Armor")
+box(parts, mats, "P1", (0.07, 0.10, 0.16), (0, 0.02, 0.15), "Plume")
+box(parts, mats, "P2", (0.06, 0.12, 0.14), (0, 0.08, 0.27), "Plume")
+box(parts, mats, "P3", (0.05, 0.14, 0.10), (0, 0.16, 0.34), "Plume")
+export(parts, "Plume")
+
+# Ram log: along Blender Y (Godot Z); the iron cap at -Y is the front (Godot +Z, towards the gate)
+mats = reset()
+parts = []
+bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.22, depth=3.2, location=(0, 0, 0), rotation=(1.5708, 0, 0))
+log = bpy.context.active_object
+log.name = "Log"
+bpy.ops.object.transform_apply(rotation=True)
+log.data.materials.append(mats["Wood"])
+parts.append(log)
+box(parts, mats, "Cap", (0.5, 0.3, 0.5), (0, -1.55, 0), "Armor")
+for y in (-0.9, -0.3, 0.3, 0.9):
+    box(parts, mats, "Bar", (1.3, 0.07, 0.07), (0, y, 0.05), "Dark")
+export(parts, "RamLog")
+
 # Spear: for later enemy variants
 mats = reset()
 parts = []

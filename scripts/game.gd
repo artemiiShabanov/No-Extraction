@@ -28,6 +28,9 @@ var test_frames := 500
 var run_seed := 0  # seed of the current run, printed at start so a run can be reproduced
 var start_wave := 1  # --wave=N starts the run at wave N (playtesting)
 var gate_test := false  # --gate-test: the auto-test forces the gate to fall
+var gate_cam := false  # --gate-cam[=fraction]: the auto-test photographs the gate from above (default at 60%)
+var gate_cam_at := 0.6
+var passive := false  # --passive: the aim bot does not shoot
 var kills := 0
 var headshots := 0
 var blocked := 0
@@ -43,6 +46,40 @@ var points_cfg := {"kill": 10, "headshot": 5, "priority": 50, "wave": 100}
 
 func award(kind: String) -> void:
 	run_points += int(points_cfg.get(kind, 0))
+
+
+var _horn: AudioStreamPlayer
+
+
+## Placeholder war horn when a priority target appears (synthesised until real audio lands).
+func play_horn() -> void:
+	if _horn == null:
+		_horn = AudioStreamPlayer.new()
+		_horn.stream = _make_horn()
+		_horn.volume_db = -6.0
+		add_child(_horn)
+	if not _horn.playing:
+		_horn.play()
+
+
+static func _make_horn() -> AudioStreamWAV:
+	var rate := 22050
+	var seconds := 1.4
+	var n := int(rate * seconds)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	for i in n:
+		var t := float(i) / rate
+		var env := minf(t / 0.08, 1.0) * clampf((seconds - t) / 0.5, 0.0, 1.0)
+		var f := 174.6 * (1.0 + 0.004 * sin(t * 30.0))
+		var v := sin(TAU * f * t) * 0.6 + sin(TAU * f * 2.0 * t) * 0.3 + sin(TAU * f * 3.0 * t) * 0.15
+		var s := int(clampf(v * env * 0.8, -1.0, 1.0) * 32767.0)
+		data.encode_s16(i * 2, s)
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = rate
+	wav.data = data
+	return wav
 
 
 func _ready() -> void:
@@ -69,6 +106,13 @@ func _ready() -> void:
 			start_wave = int(arg.get_slice("=", 1))
 		elif arg == "--gate-test":
 			gate_test = true
+			gate_cam = true
+		elif arg.begins_with("--gate-cam"):
+			gate_cam = true
+			if "=" in arg:
+				gate_cam_at = float(arg.get_slice("=", 1))
+		elif arg == "--passive":
+			passive = true
 	if run_seed == 0:
 		run_seed = randi() % 1000000
 	print("RUN seed ", run_seed)

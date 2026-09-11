@@ -67,6 +67,21 @@ var reinforce_timer := 0.0
 
 
 ## Spawn an ally. `at` = post to hold; `from_gate` = appear in the gate arch and run to the post.
+## Spawn a battering ram with its crew at `at`, heading for the gate.
+func spawn_ram(at: Vector3, spec: Dictionary, crew_spec: Dictionary, r: RandomNumberGenerator) -> Node:
+	var ram := Ram.new()
+	ram.position = Vector3(at.x, _ground(at.x, at.z), at.z)
+	ram.rotation.y = 0.0
+	add_child(ram)
+	var crew: Array = []
+	for i in int(spec.get("crew", 4)):
+		var off: Vector3 = Ram.CREW_OFFSETS[i % Ram.CREW_OFFSETS.size()]
+		var k := spawn_enemy(at + off, crew_spec, 0.0, r)
+		crew.append(k)
+	ram.setup(spec, crew)
+	return ram
+
+
 func spawn_ally(at: Variant = null, from_gate: bool = false) -> Node:
 	var k := KnightScene.instantiate()
 	var x := rng.randf_range(-wall_x_half, wall_x_half)
@@ -101,7 +116,7 @@ func _pair_duels() -> void:
 	var free_allies: Array = []
 	var free_enemies: Array = []
 	for k in get_children():
-		if not (k is CharacterBody3D) or k.dead or k.melee_target != null or k.fleeing:
+		if not (k is CharacterBody3D) or k.dead or k.melee_target != null or k.fleeing or k.ram != null:
 			continue
 		if k.faction == Game.Faction.ALLY:
 			free_allies.append(k)

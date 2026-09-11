@@ -198,7 +198,7 @@ func _auto_test() -> void:
 			player.aiming = true
 	if frame == 250:
 		Input.action_press("aim")
-	if frame >= 260 and frame % 40 == 0 and frame <= Game.test_frames - 60:
+	if frame >= 260 and frame % 40 == 0 and frame <= Game.test_frames - 60 and not Game.passive:
 		var k := _nearest_knight()
 		if k:
 			player.aim_at(_ballistic_aim_point(k))
@@ -232,9 +232,9 @@ func _auto_test() -> void:
 	if Game.gate_test and frame == int(Game.test_frames * 0.55):
 		Game.gate.damage(int(Game.gate.max_hp * 0.7), Game.gate.attack_point(1))
 		print("GATE forced to hp=%d stage=%d" % [Game.gate.hp, Game.gate.stage])
-	if Game.gate_test and frame == int(Game.test_frames * 0.6):
+	if Game.gate_test and frame == int(Game.test_frames * Game.gate_cam_at):
 		Game.gate.damage(Game.gate.hp, Game.gate.attack_point(2))
-	if Game.gate_test and frame == int(Game.test_frames * 0.6) + 10:
+	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 10:
 		# look down at the gate from above with the free camera (scope overlay fades first)
 		Input.action_release("aim")
 		if not Debug.freecam:
@@ -243,9 +243,21 @@ func _auto_test() -> void:
 		Debug.cam_yaw = PI  # face +Z, towards the gate
 		Debug.cam_pitch = -0.7
 		Debug.cam.global_rotation = Vector3(Debug.cam_pitch, Debug.cam_yaw, 0.0)
-	if Game.gate_test and frame == int(Game.test_frames * 0.6) + 40 and Game.screenshot_path != "":
+	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 40 and Game.screenshot_path != "":
 		_screenshot(Game.screenshot_path.replace(".png", "_gate.png"))
-	if Game.gate_test and frame == int(Game.test_frames * 0.6) + 70 and Debug.freecam:
+	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 50:
+		# close-up of a captain if one is alive
+		for k in get_tree().get_nodes_in_group("knight"):
+			if k.type_id == "captain" and not k.dead:
+				var fwd: Vector3 = -k.global_transform.basis.z
+				Debug.cam.global_position = k.global_position + fwd * 4.5 + Vector3(0, 1.8, 0)
+				Debug.cam.look_at(k.global_position + Vector3(0, 1.2, 0))
+				Debug.cam_yaw = Debug.cam.rotation.y
+				Debug.cam_pitch = Debug.cam.rotation.x
+				break
+	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 65 and Game.screenshot_path != "":
+		_screenshot(Game.screenshot_path.replace(".png", "_captain.png"))
+	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 90 and Debug.freecam:
 		Debug.toggle_freecam()
 		Input.action_press("aim")
 	if frame == Game.test_frames - 30:

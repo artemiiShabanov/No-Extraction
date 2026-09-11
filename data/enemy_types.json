@@ -1,14 +1,73 @@
 {
   "swordsman": {
-    "label": "Мечник", "cost": 1.0, "hp": 2, "melee_hp": 3, "speed": [5.0, 7.0],
-    "tunic": "#bf1f1a", "shield": true, "scale": 1.0, "priority": false
+    "label": "Мечник",
+    "cost": 1.0,
+    "hp": 2,
+    "melee_hp": 3,
+    "speed": [
+      5.0,
+      7.0
+    ],
+    "tunic": "#bf1f1a",
+    "shield": true,
+    "scale": 1.0,
+    "priority": false
   },
   "berserker": {
-    "label": "Берсерк", "cost": 1.5, "hp": 2, "melee_hp": 4, "speed": [7.5, 9.0],
-    "tunic": "#2a2a2e", "shield": false, "scale": 1.0, "priority": false
+    "label": "Берсерк",
+    "cost": 1.5,
+    "hp": 2,
+    "melee_hp": 4,
+    "speed": [
+      7.5,
+      9.0
+    ],
+    "tunic": "#2a2a2e",
+    "shield": false,
+    "scale": 1.0,
+    "priority": false
   },
   "captain": {
-    "label": "Капитан", "cost": 6.0, "hp": 4, "melee_hp": 6, "speed": [5.0, 6.0],
-    "tunic": "#d9a520", "shield": true, "scale": 1.15, "priority": true
+    "label": "Капитан",
+    "cost": 6.0,
+    "hp": 4,
+    "melee_hp": 6,
+    "speed": [
+      5.0,
+      6.0
+    ],
+    "tunic": "#d9a520",
+    "shield": true,
+    "scale": 1.15,
+    "priority": true,
+    "aura_radius": 12.0,
+    "aura_speed": 1.15,
+    "aura_hit": 0.15,
+    "heal_every": 15.0,
+    "death_stagger": 1.5
+  },
+  "ram_crew": {
+    "label": "Носильщик тарана",
+    "cost": 0.0,
+    "hp": 2,
+    "melee_hp": 3,
+    "speed": [
+      3.4,
+      3.8
+    ],
+    "tunic": "#5a4632",
+    "shield": false,
+    "scale": 1.0,
+    "priority": false
+  },
+  "ram": {
+    "label": "Таран",
+    "cost": 0.0,
+    "priority": true,
+    "crew": 4,
+    "speed": 3.4,
+    "damage": 25,
+    "hit_every": 3.0,
+    "min_crew": 3
   }
 }

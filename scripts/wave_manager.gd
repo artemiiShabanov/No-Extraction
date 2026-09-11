@@ -80,6 +80,8 @@ func start_next_wave() -> void:
 	for p in pending:
 		if types[p.type].get("priority", false):
 			priority_alive += 1
+	if priority_alive > 0:
+		Game.play_horn()
 	wave_time = 0.0
 	state = State.ACTIVE
 	var info := _describe(pending)
@@ -164,6 +166,9 @@ func _process(delta: float) -> void:
 	for k in spawned:
 		if not is_instance_valid(k) or k.dead:
 			continue
+		if k is Ram:
+			priority_alive += 1
+			continue
 		if k.fleeing:
 			fleeing += 1
 			continue
@@ -196,6 +201,17 @@ func _spawn(p: Dictionary) -> Node:
 	var spec: Dictionary = types[p.type].duplicate()
 	spec["id"] = p.type
 	spec["flee_to"] = pos
+	if p.type == "ram":
+		var crew_spec: Dictionary = types["ram_crew"].duplicate()
+		crew_spec["id"] = "ram_crew"
+		crew_spec["flee_to"] = pos
+		var ram: Node = spawner.spawn_ram(pos, spec, crew_spec, rng)
+		for k in ram.crew:
+			spawned.append(k)
+		Game.play_horn()
+		return ram
+	if spec.get("priority", false):
+		Game.play_horn()
 	return spawner.spawn_enemy(pos, spec, target_x, rng)
 
 

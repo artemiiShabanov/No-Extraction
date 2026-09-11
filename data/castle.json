@@ -16,7 +16,8 @@
     "kill": 10,
     "headshot": 5,
     "priority": 50,
-    "wave": 100
+    "wave": 100,
+    "ram": 75
   },
   "gate_effects": false
 }

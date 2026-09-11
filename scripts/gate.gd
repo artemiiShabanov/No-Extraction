@@ -214,6 +214,16 @@ func request_slot(knight: Node) -> int:
 	return -1
 
 
+## The ram takes the two centre slots; knights standing there re-queue.
+func reserve_ram(ram: Node) -> void:
+	for i in [1, 4]:
+		if i < slots.size():
+			var k = slots[i]
+			if k != null and is_instance_valid(k) and k != ram and "gate_slot" in k:
+				k.gate_slot = -1
+			slots[i] = ram
+
+
 func release_slot(knight: Node) -> void:
 	for i in slots.size():
 		if slots[i] == knight:
