@@ -5,7 +5,7 @@ class_name Ram
 ## foot. Counts as a priority target for the wave (no rout while it is up).
 
 const LogScene := preload("res://assets/models/ramlog.glb")
-const CREW_OFFSETS := [Vector3(0.75, 0, 0.9), Vector3(-0.75, 0, 0.9), Vector3(0.75, 0, -0.9), Vector3(-0.75, 0, -0.9)]
+const CREW_OFFSETS := [Vector3(0.8, 0, 1.0), Vector3(-0.8, 0, 1.0), Vector3(0.8, 0, 0.0), Vector3(-0.8, 0, 0.0), Vector3(0.8, 0, -1.0), Vector3(-0.8, 0, -1.0)]
 
 var crew: Array = []
 var dead := false

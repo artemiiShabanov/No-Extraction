@@ -44,7 +44,11 @@
     "aura_speed": 1.15,
     "aura_hit": 0.15,
     "heal_every": 15.0,
-    "death_stagger": 1.5
+    "death_stagger": 1.5,
+    "escort": [
+      5,
+      10
+    ]
   },
   "ram_crew": {
     "label": "Носильщик тарана",
@@ -64,10 +68,10 @@
     "label": "Таран",
     "cost": 0.0,
     "priority": true,
-    "crew": 4,
+    "crew": 6,
     "speed": 3.4,
     "damage": 25,
     "hit_every": 3.0,
-    "min_crew": 3
+    "min_crew": 4
   }
 }

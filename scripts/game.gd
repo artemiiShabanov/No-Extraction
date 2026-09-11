@@ -52,7 +52,12 @@ var _horn: AudioStreamPlayer
 
 
 ## Placeholder war horn when a priority target appears (synthesised until real audio lands).
+const HORN_ENABLED := false  # playtest: annoying; kept for a real sound later
+
+
 func play_horn() -> void:
+	if not HORN_ENABLED:
+		return
 	if _horn == null:
 		_horn = AudioStreamPlayer.new()
 		_horn.stream = _make_horn()

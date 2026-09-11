@@ -27,6 +27,7 @@ var priority_alive := 0
 var rng := RandomNumberGenerator.new()
 var budget_scale := 1.0  # auto-test uses smaller waves
 var castle_cfg := {}
+var _groups := {}  # escort group id -> shared spawn point
 var lane_override := {}   # auto-test: bring spawns closer
 
 
@@ -75,6 +76,7 @@ func start_next_wave() -> void:
 	pending = _compose(wave_index, rng)
 	pending.sort_custom(func(a, b): return a.t < b.t)
 	spawned.clear()
+	_groups.clear()
 	wave_total = pending.size()
 	priority_alive = 0
 	for p in pending:
@@ -94,9 +96,19 @@ func _compose(i: int, r: RandomNumberGenerator) -> Array:
 	## Beats verbatim + generated filler spread over the wave duration.
 	var w: Dictionary = data["waves"][i]
 	var out: Array = []
+	var group := 0
 	for beat in w.get("beats", []):
 		for n in int(beat.get("count", 1)):
-			out.append({"t": float(beat.get("at", 0)) + n * 0.4, "type": beat["type"], "lane": beat["lane"]})
+			var t0 := float(beat.get("at", 0)) + n * 0.4
+			var entry := {"t": t0, "type": beat["type"], "lane": beat["lane"]}
+			var escort: Array = types[beat["type"]].get("escort", [])
+			if escort.size() == 2:
+				# e.g. a captain arrives surrounded by rank-and-file from the same lane
+				group += 1
+				entry["group"] = group
+				for e in r.randi_range(int(escort[0]), int(escort[1])):
+					out.append({"t": t0 + r.randf_range(-0.3, 0.6), "type": "swordsman", "lane": beat["lane"], "group": group, "escort": true})
+			out.append(entry)
 	var budget: float = float(w.get("budget", 0)) * budget_scale
 	var weights: Dictionary = w.get("weights", {"swordsman": 1.0})
 	var lanes: Dictionary = w.get("lanes", {"center": 1.0})
@@ -198,6 +210,12 @@ func _spawn(p: Dictionary) -> Node:
 		lane.merge(lane_override[lane_id], true)
 	var pos := Vector3(rng.randf_range(lane.spawn_x[0], lane.spawn_x[1]), 0.0, rng.randf_range(lane.spawn_z[0], lane.spawn_z[1]))
 	var target_x := rng.randf_range(lane.target_x[0], lane.target_x[1])
+	if p.has("group"):
+		# escort groups share one spawn point and one destination, spread a few metres around it
+		if not _groups.has(p.group):
+			_groups[p.group] = {"pos": pos, "target_x": target_x}
+		pos = _groups[p.group].pos + Vector3(rng.randf_range(-4.0, 4.0), 0.0, rng.randf_range(-4.0, 4.0)) * (1.0 if p.get("escort", false) else 0.0)
+		target_x = _groups[p.group].target_x + (rng.randf_range(-3.0, 3.0) if p.get("escort", false) else 0.0)
 	var spec: Dictionary = types[p.type].duplicate()
 	spec["id"] = p.type
 	spec["flee_to"] = pos

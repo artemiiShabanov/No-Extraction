@@ -113,8 +113,8 @@ bpy.ops.object.transform_apply(rotation=True)
 log.data.materials.append(mats["Wood"])
 parts.append(log)
 box(parts, mats, "Cap", (0.5, 0.3, 0.5), (0, -1.55, 0), "Armor")
-for y in (-0.9, -0.3, 0.3, 0.9):
-    box(parts, mats, "Bar", (1.3, 0.07, 0.07), (0, y, 0.05), "Dark")
+for y in (-1.0, 0.0, 1.0):
+    box(parts, mats, "Bar", (1.4, 0.07, 0.07), (0, y, 0.05), "Dark")
 export(parts, "RamLog")
 
 # Spear: for later enemy variants
