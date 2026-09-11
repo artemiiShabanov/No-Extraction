@@ -8,6 +8,7 @@ var spawner: Node3D
 var waves: WaveManager
 var hud: Label
 var scope: Control
+var gate_bar: Control
 var frame := 0
 var _perf_accum := 0.0
 var _perf_cpu := 0.0
@@ -119,19 +120,25 @@ func _build_hud() -> void:
 	scope.player = player
 	layer.add_child(scope)
 	hud = Label.new()
-	hud.position = Vector2(16, 12)
+	hud.position = Vector2(16, 58)
 	hud.add_theme_font_size_override("font_size", 20)
 	hud.add_theme_color_override("font_color", Color(0.95, 0.9, 0.8))
 	hud.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 	hud.add_theme_constant_override("shadow_offset_x", 1)
 	hud.add_theme_constant_override("shadow_offset_y", 1)
 	layer.add_child(hud)
+	gate_bar = GateBar.new()
+	gate_bar.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	gate_bar.position = Vector2(-GateBar.WIDTH / 2, 14)
+	gate_bar.size = Vector2(GateBar.WIDTH, GateBar.HEIGHT + 22)
+	gate_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(gate_bar)
 
 
 func _process(_delta: float) -> void:
 	frame += 1
-	hud.text = "%s\nВОРОТА %d / %d   очки %d\nAMMO %d / %d    [R] reload\nKILLS %d  (headshots %d, blocked by shields %d, allies hit %d)\nENEMIES %d   ALLIES %d   melee deaths %d\nFPS %d" % [
-		waves.status_text(), Game.gate.hp, Game.gate.max_hp, Game.run_points, player.ammo, player.magazine_size, Game.kills, Game.headshots, Game.blocked, Game.ally_kills,
+	hud.text = "%s\nочки %d\nAMMO %d / %d    [R] reload\nKILLS %d  (headshots %d, blocked by shields %d, allies hit %d)\nENEMIES %d   ALLIES %d   melee deaths %d\nFPS %d" % [
+		waves.status_text(), Game.run_points, player.ammo, player.magazine_size, Game.kills, Game.headshots, Game.blocked, Game.ally_kills,
 		spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.melee_deaths, Engine.get_frames_per_second()]
 	if Input.is_action_just_pressed("next_wave") and not Debug.input_blocked():
 		waves.start_next_wave()
@@ -293,6 +300,40 @@ func _screenshot(path: String) -> void:
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(path)
 	print("SCREENSHOT ", path)
+
+
+class GateBar:
+	extends Control
+	## Gate integrity bar: colour from green to red, flashes on every hit.
+	const WIDTH := 340.0
+	const HEIGHT := 16.0
+	var last_hp := -1
+	var flash := 0.0
+
+	func _process(delta: float) -> void:
+		flash = max(flash - delta * 3.0, 0.0)
+		if Game.gate and Game.gate.hp != last_hp:
+			if last_hp >= 0 and Game.gate.hp < last_hp:
+				flash = 1.0
+			last_hp = Game.gate.hp
+		queue_redraw()
+
+	func _draw() -> void:
+		if Game.gate == null:
+			return
+		var ratio: float = float(Game.gate.hp) / max(Game.gate.max_hp, 1)
+		var col := Color(0.35, 0.8, 0.3).lerp(Color(0.95, 0.75, 0.2), clamp((0.66 - ratio) / 0.33 + 1.0, 0.0, 1.0)) if ratio > 0.33 else Color(0.9, 0.25, 0.15)
+		col = col.lerp(Color(1, 1, 1), flash * 0.6)
+		var font := ThemeDB.fallback_font
+		draw_string(font, Vector2(0, 14), "ВОРОТА", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.95, 0.9, 0.8))
+		var y := 20.0
+		draw_rect(Rect2(0, y, WIDTH, HEIGHT), Color(0, 0, 0, 0.55))
+		draw_rect(Rect2(2, y + 2, (WIDTH - 4) * ratio, HEIGHT - 4), col)
+		# stage marks at 66% and 33%
+		for m in [0.66, 0.33]:
+			draw_line(Vector2(2 + (WIDTH - 4) * m, y), Vector2(2 + (WIDTH - 4) * m, y + HEIGHT), Color(0, 0, 0, 0.6), 1.0)
+		var txt := "%d / %d" % [Game.gate.hp, Game.gate.max_hp] if not Game.gate.fallen else "ПАЛИ"
+		draw_string(font, Vector2(WIDTH / 2 - 30, y + 13), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.9))
 
 
 class ScopeOverlay:
