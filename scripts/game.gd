@@ -34,6 +34,14 @@ var ally_kills := 0  # allies killed by the player (friendly fire)
 var melee_deaths := 0
 var last_kill: Node3D
 var terrain: Node3D  # set by Terrain when it enters the tree
+var gate: Node3D  # set by Gate when it enters the tree
+var run_points := 0
+var defeated := false
+var points_cfg := {"kill": 10, "headshot": 5, "priority": 50, "wave": 100}
+
+
+func award(kind: String) -> void:
+	run_points += int(points_cfg.get(kind, 0))
 
 
 func _ready() -> void:

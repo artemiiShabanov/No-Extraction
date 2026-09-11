@@ -8,7 +8,7 @@ extends CanvasLayer
 
 const KEYS := {
 	"debug_menu": KEY_F1, "debug_freecam": KEY_F2, "debug_hitboxes": KEY_F3,
-	"debug_spawn": KEY_F5, "debug_kill_all": KEY_F6, "debug_next_wave": KEY_F7, "debug_bookmark": KEY_F11, "debug_screenshot": KEY_F12,
+	"debug_spawn": KEY_F5, "debug_kill_all": KEY_F6, "debug_next_wave": KEY_F7, "debug_gate": KEY_F8, "debug_bookmark": KEY_F11, "debug_screenshot": KEY_F12,
 }
 const ZONE_COLORS := {"head": Color(1, 0.2, 0.2, 0.35), "torso": Color(1, 0.6, 0.1, 0.3), "limb": Color(0.3, 0.6, 1, 0.3), "shield": Color(1, 1, 0.2, 0.35)}
 
@@ -73,6 +73,7 @@ func _build_ui() -> void:
 	_button(box, "      +5 союзников", spawn_allies.bind(5))
 	_button(box, "F6  Убить всех врагов", kill_all_enemies)
 	_button(box, "F7  Следующая волна", next_wave)
+	_button(box, "F8  Ворота -50 HP", damage_gate)
 	_button(box, "Бесконечные патроны", toggle_infinite_ammo)
 	_button(box, "Статистика вкл/выкл", func(): show_stats = not show_stats)
 	var row := HBoxContainer.new()
@@ -123,6 +124,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		kill_all_enemies()
 	elif event.is_action_pressed("debug_next_wave"):
 		next_wave()
+	elif event.is_action_pressed("debug_gate"):
+		damage_gate()
 	elif event.is_action_pressed("debug_bookmark"):
 		bookmark()
 	elif event.is_action_pressed("debug_screenshot"):
@@ -272,6 +275,11 @@ func next_wave() -> void:
 		w.start_next_wave()
 
 
+func damage_gate() -> void:
+	if Game.gate:
+		Game.gate.damage(50, Game.gate.attack_point(1))
+
+
 func restart_scene() -> void:
 	Engine.time_scale = 1.0
 	Game.kills = 0
@@ -280,6 +288,9 @@ func restart_scene() -> void:
 	Game.ally_kills = 0
 	Game.melee_deaths = 0
 	Game.last_kill = null
+	Game.run_points = 0
+	Game.defeated = false
+	Game.gate = null
 	if freecam:
 		toggle_freecam()
 	set_menu_open(false)

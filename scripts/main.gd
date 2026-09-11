@@ -45,6 +45,7 @@ func _ready() -> void:
 			waves.lane_override[lane] = {"spawn_z": [-110, -60]}
 		waves.lane_override["flank"] = {"spawn_z": [-70, -40]}
 	add_child(waves)
+	Game.gate.fell.connect(_on_gate_fell)
 
 	player = PlayerScene.instantiate()
 	player.position = Vector3(15.0, 10.1, 0.0)
@@ -129,8 +130,8 @@ func _build_hud() -> void:
 
 func _process(_delta: float) -> void:
 	frame += 1
-	hud.text = "%s\nAMMO %d / %d    [R] reload\nKILLS %d  (headshots %d, blocked by shields %d, allies hit %d)\nENEMIES %d   ALLIES %d   melee deaths %d\nFPS %d" % [
-		waves.status_text(), player.ammo, player.magazine_size, Game.kills, Game.headshots, Game.blocked, Game.ally_kills,
+	hud.text = "%s\nВОРОТА %d / %d   очки %d\nAMMO %d / %d    [R] reload\nKILLS %d  (headshots %d, blocked by shields %d, allies hit %d)\nENEMIES %d   ALLIES %d   melee deaths %d\nFPS %d" % [
+		waves.status_text(), Game.gate.hp, Game.gate.max_hp, Game.run_points, player.ammo, player.magazine_size, Game.kills, Game.headshots, Game.blocked, Game.ally_kills,
 		spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.melee_deaths, Engine.get_frames_per_second()]
 	if Input.is_action_just_pressed("next_wave") and not Debug.input_blocked():
 		waves.start_next_wave()
@@ -213,6 +214,26 @@ func _auto_test() -> void:
 		print("PERF frame %.2f ms | script+physics %.2f ms | render cpu %.2f ms | gpu %.2f ms | enemies %d allies %d | kills %d headshots %d blocked %d melee deaths %d" % [
 			_perf_accum / 80.0 * 1000.0, _perf_cpu / 80.0 * 1000.0, _perf_render_cpu / 80.0, _perf_gpu / 80.0,
 			spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.kills, Game.headshots, Game.blocked, Game.melee_deaths])
+	# gate: at 60% of the run force heavy damage so the stages, the fall and the breach show
+	if frame == int(Game.test_frames * 0.55):
+		Game.gate.damage(int(Game.gate.max_hp * 0.7), Game.gate.attack_point(1))
+		print("GATE forced to hp=%d stage=%d" % [Game.gate.hp, Game.gate.stage])
+	if frame == int(Game.test_frames * 0.6):
+		Game.gate.damage(Game.gate.hp, Game.gate.attack_point(2))
+	if frame == int(Game.test_frames * 0.6) + 10:
+		# look down at the gate from above with the free camera (scope overlay fades first)
+		Input.action_release("aim")
+		if not Debug.freecam:
+			Debug.toggle_freecam()
+		Debug.cam.global_position = Vector3(0.0, 14.0, -13.0)
+		Debug.cam_yaw = PI  # face +Z, towards the gate
+		Debug.cam_pitch = -0.7
+		Debug.cam.global_rotation = Vector3(Debug.cam_pitch, Debug.cam_yaw, 0.0)
+	if frame == int(Game.test_frames * 0.6) + 40 and Game.screenshot_path != "":
+		_screenshot(Game.screenshot_path.replace(".png", "_gate.png"))
+	if frame == int(Game.test_frames * 0.6) + 70 and Debug.freecam:
+		Debug.toggle_freecam()
+		Input.action_press("aim")
 	if frame == Game.test_frames - 30:
 		# wide look at the allied line for the battlefield screenshot
 		Input.action_release("aim")
@@ -225,6 +246,12 @@ func _auto_test() -> void:
 	if frame == Game.test_frames:
 		Input.action_release("aim")
 		get_tree().quit()
+
+
+func _on_gate_fell() -> void:
+	# short breach sequence: enemies pour in for a few seconds, then the run is lost
+	print("GATE breach sequence")
+	get_tree().create_timer(4.0).timeout.connect(waves.lose)
 
 
 func _ballistic_aim_point(k: Node3D) -> Vector3:

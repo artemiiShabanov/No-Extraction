@@ -1,0 +1,8 @@
+{
+  "gate_hp": 300,
+  "gate_slots": 6,
+  "gate_damage": {"swordsman": 2, "berserker": 3, "captain": 4},
+  "stages": [0.66, 0.33, 0.0],
+  "reinforce_ratio": 0.5,
+  "points": {"kill": 10, "headshot": 5, "priority": 50, "wave": 100}
+}

@@ -9,7 +9,7 @@ signal wave_started(index: int, info: Dictionary)
 signal wave_cleared(index: int, stats: Dictionary)
 signal run_won()
 
-enum State { IDLE, ACTIVE, ROUT, CLEARED, WON }
+enum State { IDLE, ACTIVE, ROUT, CLEARED, WON, LOST }
 
 const WAVES_PATH := "res://data/waves.json"
 const TYPES_PATH := "res://data/enemy_types.json"
@@ -26,12 +26,15 @@ var spawned: Array = []
 var priority_alive := 0
 var rng := RandomNumberGenerator.new()
 var budget_scale := 1.0  # auto-test uses smaller waves
+var castle_cfg := {}
 var lane_override := {}   # auto-test: bring spawns closer
 
 
 func _ready() -> void:
 	data = _load_json(WAVES_PATH)
 	types = _load_json(TYPES_PATH)
+	castle_cfg = _load_json("res://data/castle.json")
+	Game.points_cfg = castle_cfg.get("points", Game.points_cfg)
 	wave_index = clampi(Game.start_wave, 1, wave_count()) - 2  # start_next_wave() adds one
 
 
@@ -135,6 +138,16 @@ func _describe(list: Array) -> Dictionary:
 	return {"total": list.size(), "types": by_type, "lanes": by_lane}
 
 
+func lose() -> void:
+	## The gate fell: the run is over, points burn.
+	if state == State.LOST:
+		return
+	state = State.LOST
+	Game.defeated = true
+	Game.run_points = 0
+	print("RUN LOST at wave %d" % (wave_index + 1))
+
+
 func _process(delta: float) -> void:
 	if state != State.ACTIVE and state != State.ROUT:
 		return
@@ -196,7 +209,9 @@ func _rout() -> void:
 func _cleared() -> void:
 	state = State.CLEARED
 	var stats := {"time": wave_time, "total": wave_total, "kills": Game.kills, "headshots": Game.headshots}
-	print("WAVE %d cleared at t=%.1f" % [wave_index + 1, wave_time])
+	Game.award("wave")
+	var back: int = spawner.reinforce(float(castle_cfg.get("reinforce_ratio", 0.5)))
+	print("WAVE %d cleared at t=%.1f, %d allies reinforced, points %d" % [wave_index + 1, wave_time, back, Game.run_points])
 	wave_cleared.emit(wave_index, stats)
 	if wave_index + 1 >= wave_count():
 		state = State.WON
@@ -219,5 +234,7 @@ func status_text() -> String:
 		State.CLEARED:
 			return "Волна %d отбита за %.0f с. [N] следующая волна" % [wave_index + 1, wave_time]
 		State.WON:
-			return "ПОБЕДА: все %d волн отбиты" % wave_count()
+			return "ПОБЕДА: все %d волн отбиты, очки %d" % [wave_count(), Game.run_points]
+		State.LOST:
+			return "ВОРОТА ПАЛИ. Очки забега сгорели. Перезапуск: дебаг-меню или F1"
 	return ""

@@ -72,6 +72,15 @@ func spawn_ally(at: Variant = null) -> Node:
 	return k
 
 
+## Between waves: bring back part of the fallen allies to the line.
+func reinforce(ratio: float) -> int:
+	var missing := ally_count - alive_count(Game.Faction.ALLY)
+	var n := int(ceil(missing * ratio))
+	for i in n:
+		spawn_ally()
+	return n
+
+
 func _pair_duels() -> void:
 	## Each free ally picks the nearest free enemy within range; both lock onto each other.
 	var free_allies: Array = []

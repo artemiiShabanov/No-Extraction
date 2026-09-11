@@ -10,7 +10,6 @@ const GATE_HALF := 4.5
 const WallSegment := preload("res://assets/models/castle/wall_segment.glb")
 const TowerRound := preload("res://assets/models/castle/tower_round.glb")
 const Gatehouse := preload("res://assets/models/castle/gatehouse.glb")
-const GateDoors := preload("res://assets/models/castle/gate_doors.glb")
 
 
 func _ready() -> void:
@@ -21,7 +20,10 @@ func _ready() -> void:
 		_place(WallSegment, Vector3(-x, 0, 0))
 		x += SEGMENT_LEN
 	_place(Gatehouse, Vector3(0, 0, 0))
-	_place(GateDoors, Vector3(0, 0, 0.6))
+	var gate := Gate.new()
+	gate.name = "Gate"
+	gate.position = Vector3(0, 0, 0.6)
+	add_child(gate)
 	# gate flank towers (smaller) and corner towers
 	for sx in [-1.0, 1.0]:
 		_place(TowerRound, Vector3(sx * 6.8, 0, 0), 0.72)

@@ -16,6 +16,10 @@ extends CharacterBody3D
 var type_id := "swordsman"
 var fleeing := false
 var flee_to := Vector3.ZERO
+var gate_slot := -1
+var gate_retry := 0.0
+var idle_at_wall := 0.0
+var gate_damage := 2
 
 const SwordScene := preload("res://assets/models/sword.glb")
 const ShieldScene := preload("res://assets/models/shield.glb")
@@ -101,6 +105,8 @@ func apply_spec(spec: Dictionary, r: RandomNumberGenerator) -> void:
 	has_shield = bool(spec.get("shield", true))
 	priority = bool(spec.get("priority", false))
 	scale = Vector3.ONE * float(spec.get("scale", 1.0))
+	var cfg := WaveManager._load_json("res://data/castle.json")
+	gate_damage = int(cfg.get("gate_damage", {}).get(type_id, 2))
 	flee_to = spec.get("flee_to", Vector3(0, 0, -200))
 
 
@@ -112,7 +118,18 @@ func flee() -> void:
 	melee_target = null
 	attacking = false
 	hold = false
+	_leave_gate()
 	collision_layer = 0  # no longer a target for duel pairing; bullets still hit hitboxes
+
+
+func _leave_gate() -> void:
+	if gate_slot >= 0 and Game.gate:
+		Game.gate.release_slot(self)
+	gate_slot = -1
+
+
+func _gate_bound() -> bool:
+	return faction == Game.Faction.ENEMY and Game.gate != null and abs(target.x) <= 3.5
 
 
 func _ready() -> void:
@@ -263,6 +280,9 @@ func _physics_process(delta: float) -> void:
 		attacking = false
 	var goal: Vector3
 	var engage_range := 1.6
+	var at_gate := false  # standing in an attack slot or the waiting crowd
+	if melee_target and gate_slot >= 0:
+		_leave_gate()  # a duel pulls us out of the queue; we re-queue afterwards
 	if fleeing:
 		var away := flee_to - global_position
 		away.y = 0.0
@@ -283,6 +303,18 @@ func _physics_process(delta: float) -> void:
 		engage_range = 1.9
 	elif hold:
 		goal = global_position
+	elif Game.gate and Game.gate.fallen and faction == Game.Faction.ENEMY:
+		goal = Vector3(randf_range(-2.0, 2.0) if global_position.z < 2.0 else global_position.x, 0.0, 14.0)  # pour into the courtyard
+		engage_range = 3.0
+		hold = global_position.z > 8.0
+	elif _gate_bound():
+		at_gate = true
+		gate_retry -= delta
+		if gate_slot < 0 and gate_retry <= 0.0:
+			gate_retry = 1.0
+			gate_slot = Game.gate.request_slot(self)
+		goal = Game.gate.slot_position(gate_slot) if gate_slot >= 0 else Game.gate.wait_position(self)
+		engage_range = 1.0
 	else:
 		goal = target
 	var to := goal - global_position
@@ -293,17 +325,35 @@ func _physics_process(delta: float) -> void:
 	elif to.length() < engage_range:
 		velocity.x = 0
 		velocity.z = 0
-		if melee_target or not hold:
-			_face(to, delta)
+		if at_gate and gate_slot < 0:
+			# waiting crowd: face the gate, jeer now and then
+			_face(Game.gate.global_position - global_position, delta)
+			attacking = false
+			_play_loop("Attack" if int(wobble_phase * 10.0) % 7 == 0 else "Idle")
+			wobble_phase += delta * 0.3
+		elif melee_target or not hold:
+			if at_gate:
+				_face(Vector3(0, 0, 1), delta)  # face the doors
+			else:
+				_face(to, delta)
 			if not attacking:
 				attacking = true
 				attack_timer = attack_period * randf_range(0.3, 1.0)
 			_play_loop("Attack")
-			if melee_target:
-				attack_timer -= delta
-				if attack_timer <= 0.0:
-					attack_timer = attack_period
+			attack_timer -= delta
+			if attack_timer <= 0.0:
+				attack_timer = attack_period
+				if melee_target:
 					melee_target.take_melee_hit(self)
+				elif at_gate and gate_slot >= 0:
+					Game.gate.damage(gate_damage, Game.gate.attack_point(gate_slot))
+			if not at_gate and not melee_target and faction == Game.Faction.ENEMY:
+				# reached the wall with nobody to fight: after a moment head for the gate
+				idle_at_wall += delta
+				if idle_at_wall > 2.5:
+					target.x = randf_range(-2.5, 2.5)
+					idle_at_wall = 0.0
+					attacking = false
 		else:
 			_play_loop("Idle")
 	else:
@@ -361,10 +411,14 @@ func hit_zone(zone: String, pos: Vector3, impulse: Vector3) -> String:
 	if hp <= 0:
 		if zone == "head":
 			Game.headshots += 1
+			Game.award("headshot")
 		if faction == Game.Faction.ALLY:
 			Game.ally_kills += 1
 		else:
 			Game.kills += 1
+			Game.award("kill")
+			if priority:
+				Game.award("priority")
 		Game.last_kill = self
 		_ragdoll(pos, impulse * (1.6 if zone == "head" else 1.0))
 	else:
@@ -381,6 +435,7 @@ func hit(pos: Vector3, impulse: Vector3, _bullet: Node) -> void:
 func _mark_dead() -> void:
 	dead = true
 	melee_target = null
+	_leave_gate()
 	collision_layer = 0
 	collision_mask = 0
 	$CollisionShape3D.disabled = true
