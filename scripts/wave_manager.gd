@@ -172,14 +172,17 @@ func _process(delta: float) -> void:
 			priority_alive += 1
 	# beats/filler still to come count as alive for the rout rule
 	var remaining := alive + pending.size()
+	# fleeing knights do not hold the wave: once nobody is fighting, the wave is cleared
 	if state == State.ACTIVE:
 		var ratio: float = float(current_wave().get("rout_ratio", 0.2))
-		if remaining == 0 and fleeing == 0:
+		if remaining == 0:
 			_cleared()
 		elif pending.is_empty() and priority_alive == 0 and remaining <= ceil(wave_total * ratio):
 			_rout()
+			if alive == 0:
+				_cleared()
 	elif state == State.ROUT:
-		if alive == 0 and fleeing == 0:
+		if alive == 0:
 			_cleared()
 
 

@@ -184,6 +184,13 @@ func _auto_test() -> void:
 	if frame == 170:
 		Debug.set_menu_open(false)
 		Debug.toggle_hitboxes()
+	if frame == 230:
+		var n := 0
+		for k in get_tree().get_nodes_in_group("knight"):
+			if k.faction == Game.Faction.ALLY and not k.dead and n < 6:
+				k.hit_zone("head", k.global_position + Vector3(0, 1.5, 0), Vector3(0, 1, -4))
+				n += 1
+		Game.ally_kills = 0
 	if frame == 240:
 		var k := _nearest_knight()
 		if k:
@@ -222,12 +229,12 @@ func _auto_test() -> void:
 			_perf_accum / 80.0 * 1000.0, _perf_cpu / 80.0 * 1000.0, _perf_render_cpu / 80.0, _perf_gpu / 80.0,
 			spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.kills, Game.headshots, Game.blocked, Game.melee_deaths])
 	# gate: at 60% of the run force heavy damage so the stages, the fall and the breach show
-	if frame == int(Game.test_frames * 0.55):
+	if Game.gate_test and frame == int(Game.test_frames * 0.55):
 		Game.gate.damage(int(Game.gate.max_hp * 0.7), Game.gate.attack_point(1))
 		print("GATE forced to hp=%d stage=%d" % [Game.gate.hp, Game.gate.stage])
-	if frame == int(Game.test_frames * 0.6):
+	if Game.gate_test and frame == int(Game.test_frames * 0.6):
 		Game.gate.damage(Game.gate.hp, Game.gate.attack_point(2))
-	if frame == int(Game.test_frames * 0.6) + 10:
+	if Game.gate_test and frame == int(Game.test_frames * 0.6) + 10:
 		# look down at the gate from above with the free camera (scope overlay fades first)
 		Input.action_release("aim")
 		if not Debug.freecam:
@@ -236,9 +243,9 @@ func _auto_test() -> void:
 		Debug.cam_yaw = PI  # face +Z, towards the gate
 		Debug.cam_pitch = -0.7
 		Debug.cam.global_rotation = Vector3(Debug.cam_pitch, Debug.cam_yaw, 0.0)
-	if frame == int(Game.test_frames * 0.6) + 40 and Game.screenshot_path != "":
+	if Game.gate_test and frame == int(Game.test_frames * 0.6) + 40 and Game.screenshot_path != "":
 		_screenshot(Game.screenshot_path.replace(".png", "_gate.png"))
-	if frame == int(Game.test_frames * 0.6) + 70 and Debug.freecam:
+	if Game.gate_test and frame == int(Game.test_frames * 0.6) + 70 and Debug.freecam:
 		Debug.toggle_freecam()
 		Input.action_press("aim")
 	if frame == Game.test_frames - 30:

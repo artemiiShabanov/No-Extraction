@@ -25,6 +25,7 @@ var smoke: GPUParticles3D
 var fire: GPUParticles3D
 var fire_light: OmniLight3D
 var wood: Material
+var effects_enabled := true  # smoke/fire, off by playtest feedback for now
 
 
 func _ready() -> void:
@@ -34,6 +35,7 @@ func _ready() -> void:
 	hp = max_hp
 	stages = cfg.get("stages", stages)
 	slots.resize(int(cfg.get("gate_slots", 6)))
+	effects_enabled = bool(cfg.get("gate_effects", true))
 	wood = EnvMaterials.stone("Wood")
 	_build_doors()
 	_build_effects()
@@ -157,9 +159,9 @@ func _apply_stage() -> void:
 		if mi.mesh is BoxMesh and (mi.mesh as BoxMesh).size.y > 1.0:  # planks only, not bands
 			mi.visible = not (idx in to_hide)
 			idx += 1
-	smoke.emitting = stage >= 2
-	fire.emitting = stage >= 3
-	fire_light.light_energy = 6.0 if stage >= 3 else 0.0
+	smoke.emitting = effects_enabled and stage >= 2
+	fire.emitting = effects_enabled and stage >= 3
+	fire_light.light_energy = 6.0 if effects_enabled and stage >= 3 else 0.0
 
 
 func _fall() -> void:
@@ -195,7 +197,7 @@ func _fall() -> void:
 
 
 func _process(delta: float) -> void:
-	if stage >= 3 and not fallen:
+	if effects_enabled and stage >= 3 and not fallen:
 		fire_light.light_energy = 5.0 + sin(Time.get_ticks_msec() * 0.02) * 1.2 + randf() * 0.6
 
 

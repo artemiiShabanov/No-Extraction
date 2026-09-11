@@ -25,6 +25,12 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	# reinforcements file out of the gate one by one
+	if not reinforce_queue.is_empty():
+		reinforce_timer -= delta
+		if reinforce_timer <= 0.0:
+			reinforce_timer = 0.4
+			spawn_ally(reinforce_queue.pop_front(), true)
 	pair_timer -= delta
 	if pair_timer <= 0.0:
 		pair_timer = 0.5
@@ -54,20 +60,29 @@ func spawn_enemy(at: Variant = null, spec: Dictionary = DEFAULT_ENEMY, target_x:
 	return k
 
 
-func spawn_ally(at: Variant = null) -> Node:
+const GATE_EXIT := Vector3(0.0, 0.0, -1.5)  # inside the arch, just outside the doors
+
+var reinforce_queue: Array[Vector3] = []
+var reinforce_timer := 0.0
+
+
+## Spawn an ally. `at` = post to hold; `from_gate` = appear in the gate arch and run to the post.
+func spawn_ally(at: Variant = null, from_gate: bool = false) -> Node:
 	var k := KnightScene.instantiate()
 	var x := rng.randf_range(-wall_x_half, wall_x_half)
 	var z := rng.randf_range(ally_z_min, ally_z_max)
 	if at != null:
 		x = at.x
 		z = at.z
-	k.position = Vector3(x, _ground(x, z) + 0.2, z)
-	k.target = k.position
-	k.hold = true
+	var post := Vector3(x, 0.0, z)
+	var start := GATE_EXIT + Vector3(rng.randf_range(-1.2, 1.2), 0, 0) if from_gate else post
+	k.position = Vector3(start.x, _ground(start.x, start.z) + 0.2, start.z)
+	k.target = post
+	k.hold = not from_gate  # runners hold once they reach the post
 	k.speed = rng.randf_range(5.0, 7.0)
 	k.faction = Game.Faction.ALLY
 	k.tunic_color = ALLY_BLUE
-	k.rotation.y = PI  # face the field (-Z)
+	k.rotation.y = 0.0  # face the field (-Z)
 	add_child(k)
 	return k
 
@@ -77,7 +92,7 @@ func reinforce(ratio: float) -> int:
 	var missing := ally_count - alive_count(Game.Faction.ALLY)
 	var n := int(ceil(missing * ratio))
 	for i in n:
-		spawn_ally()
+		reinforce_queue.append(Vector3(rng.randf_range(-wall_x_half, wall_x_half), 0.0, rng.randf_range(ally_z_min, ally_z_max)))
 	return n
 
 

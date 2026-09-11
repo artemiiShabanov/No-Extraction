@@ -325,6 +325,9 @@ func _physics_process(delta: float) -> void:
 	elif to.length() < engage_range:
 		velocity.x = 0
 		velocity.z = 0
+		if faction == Game.Faction.ALLY and not melee_target and not hold:
+			hold = true  # reinforcement reached its post
+			_face(Vector3(0, 0, -1), delta)
 		if at_gate and gate_slot < 0:
 			# waiting crowd: face the gate, jeer now and then
 			_face(Game.gate.global_position - global_position, delta)

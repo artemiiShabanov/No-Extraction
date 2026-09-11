@@ -27,6 +27,7 @@ var auto_test := false
 var test_frames := 500
 var run_seed := 0  # seed of the current run, printed at start so a run can be reproduced
 var start_wave := 1  # --wave=N starts the run at wave N (playtesting)
+var gate_test := false  # --gate-test: the auto-test forces the gate to fall
 var kills := 0
 var headshots := 0
 var blocked := 0
@@ -66,6 +67,8 @@ func _ready() -> void:
 			run_seed = int(arg.get_slice("=", 1))
 		elif arg.begins_with("--wave="):
 			start_wave = int(arg.get_slice("=", 1))
+		elif arg == "--gate-test":
+			gate_test = true
 	if run_seed == 0:
 		run_seed = randi() % 1000000
 	print("RUN seed ", run_seed)
