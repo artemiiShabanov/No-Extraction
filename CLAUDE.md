@@ -14,7 +14,8 @@ made in chat go into the decision log in `docs/DESIGN.md` the same day.
 ## Verification loop
 
 - Full run with aim bot and screenshots:
-  `Godot --path . -- --auto-test --frames=900 --screenshot=<dir>/x.png` (prints INPUT/PERF/END);
+  `Godot --path . -- --auto-test --frames=900 --screenshot=<dir>/x.png` (prints INPUT/PERF/END;
+  the game goes fullscreen at startup except under --auto-test, so screenshots stay 1600x900);
   add `--gate-test` to force the gate to fall (breach + defeat), `--wave=N`, `--seed=N`.
 - Hit zones + ragdoll: `Godot --path . res://debug/knight_test.tscn` must print `KNIGHT_TEST PASS`.
 - Inspect an imported model: `Godot --headless --path . --script tools/godot/inspect_scene.gd -- res://...`.

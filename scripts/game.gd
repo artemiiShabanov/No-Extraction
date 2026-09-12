@@ -120,10 +120,9 @@ func _ready() -> void:
 				gate_cam_at = float(arg.get_slice("=", 1))
 		elif arg == "--passive":
 			passive = true
-	if auto_test:
-		# screenshots must not depend on the monitor: keep the test window at the project size
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-		DisplayServer.window_set_size(Vector2i(1600, 900))
+	if not auto_test:
+		# fullscreen by default; the auto-test keeps the 1600x900 window so screenshots are stable
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	if run_seed == 0:
 		run_seed = randi() % 1000000
 	print("RUN seed ", run_seed)
