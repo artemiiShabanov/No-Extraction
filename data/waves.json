@@ -94,7 +94,8 @@
       "rout_ratio": 0.2,
       "weights": {
         "swordsman": 0.7,
-        "berserker": 0.3
+        "berserker": 0.3,
+        "archer": 0.15
       },
       "lanes": {
         "center": 0.5,
@@ -130,6 +131,12 @@
           "type": "captain",
           "count": 1,
           "lane": "center"
+        },
+        {
+          "at": 6,
+          "type": "archer",
+          "count": 4,
+          "lane": "right"
         }
       ]
     },
@@ -140,7 +147,8 @@
       "rout_ratio": 0.2,
       "weights": {
         "swordsman": 0.7,
-        "berserker": 0.3
+        "berserker": 0.3,
+        "archer": 0.15
       },
       "lanes": {
         "left": 0.4,
@@ -194,6 +202,12 @@
           "type": "captain",
           "count": 1,
           "lane": "right"
+        },
+        {
+          "at": 4,
+          "type": "archer",
+          "count": 5,
+          "lane": "left"
         }
       ]
     },
@@ -204,7 +218,8 @@
       "rout_ratio": 0.15,
       "weights": {
         "swordsman": 0.5,
-        "berserker": 0.5
+        "berserker": 0.5,
+        "archer": 0.2
       },
       "lanes": {
         "center": 0.35,
@@ -234,7 +249,8 @@
       "rout_ratio": 0.1,
       "weights": {
         "swordsman": 0.5,
-        "berserker": 0.5
+        "berserker": 0.5,
+        "archer": 0.15
       },
       "lanes": {
         "center": 0.35,
@@ -272,6 +288,12 @@
           "type": "ram",
           "count": 2,
           "lane": "center"
+        },
+        {
+          "at": 8,
+          "type": "archer",
+          "count": 6,
+          "lane": "right"
         }
       ]
     }

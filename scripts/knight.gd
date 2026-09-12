@@ -32,11 +32,26 @@ var heal_every := 0.0
 var death_stagger := 0.0
 var aura_timer := 0.0
 var heal_timer := 0.0
+# ranged (archers)
+var ranged := false
+var stand_off := 52.0
+var fire_range := 75.0
+var fire_every := 4.5
+var spread := 4.0
+var arrow_speed := 30.0
+var fire_timer := 2.0
+var drawing := false
+var draw_timer := 0.0
+var shoot_target: Node3D = null
+var points_kind := ""
 
 const SwordScene := preload("res://assets/models/sword.glb")
 const ShieldScene := preload("res://assets/models/shield.glb")
 const BannerScene := preload("res://assets/models/banner.glb")
 const PlumeScene := preload("res://assets/models/plume.glb")
+const BowScene := preload("res://assets/models/bow.glb")
+const QuiverScene := preload("res://assets/models/quiver.glb")
+const ArrowScene := preload("res://scenes/arrow.tscn")
 
 # animation name -> Mixamo file (each holds one clip named "mixamo_com")
 const ANIM_FILES := {
@@ -44,6 +59,8 @@ const ANIM_FILES := {
 	"Idle": "res://assets/mixamo/knight_idle.fbx",
 	"Attack": "res://assets/mixamo/knight_attack.fbx",
 	"Death": "res://assets/mixamo/knight_death.fbx",
+	"BowDraw": "res://assets/mixamo/knight_bow_draw.fbx",
+	"BowShoot": "res://assets/mixamo/knight_bow_shoot.fbx",
 }
 const LOOPING := ["Run", "Idle", "Attack"]
 static var _anim_cache := {}
@@ -126,6 +143,14 @@ func apply_spec(spec: Dictionary, r: RandomNumberGenerator) -> void:
 	death_stagger = float(spec.get("death_stagger", 0.0))
 	heal_timer = heal_every
 	melee_hp_max = melee_hp
+	ranged = bool(spec.get("ranged", false))
+	stand_off = float(spec.get("stand_off", 52.0))
+	fire_range = float(spec.get("range", 75.0))
+	fire_every = float(spec.get("fire_every", 4.5))
+	spread = float(spec.get("spread", 4.0))
+	arrow_speed = float(spec.get("arrow_speed", 30.0))
+	fire_timer = fire_every * randf_range(0.4, 1.0)
+	points_kind = str(spec.get("points", ""))
 	var cfg := WaveManager._load_json("res://data/castle.json")
 	gate_damage = int(cfg.get("gate_damage", {}).get(type_id, 2))
 	flee_to = spec.get("flee_to", Vector3(0, 0, -200))
@@ -169,11 +194,15 @@ func _ready() -> void:
 				body_mesh = c
 				break
 	_apply_palette()
-	_attach_prop(RIGHT_HAND_BONE, SwordScene, Vector3(0.0, 0.06, 0.0))
+	if not ranged:
+		_attach_prop(RIGHT_HAND_BONE, SwordScene, Vector3(0.0, 0.06, 0.0))
 	var shield_attachment: BoneAttachment3D = _attach_prop(LEFT_ARM_BONE, ShieldScene, SHIELD_OFFSET) if has_shield else null
 	if type_id == "captain":
 		_attach_prop("mixamorig_Spine2", BannerScene, Vector3(0.0, 0.05, -0.2), Vector3(0, 0, 0))
 		_attach_prop("mixamorig_Head", PlumeScene, Vector3(0.0, 0.42, 0.0))
+	if ranged:
+		_attach_prop("mixamorig_LeftHand", BowScene, Vector3(0.0, 0.05, 0.0), Vector3(PI / 2, 0, 0))  # limbs across the fist
+		_attach_prop("mixamorig_Spine2", QuiverScene, Vector3(0.15, 0.1, -0.18), Vector3(0.35, 0, 0))
 	_build_hitboxes(shield_attachment)
 	if anim:
 		_install_animations()
@@ -362,6 +391,9 @@ func _physics_process(delta: float) -> void:
 	if ram:
 		_follow_ram(delta)
 		return
+	if ranged and not melee_target and not fleeing and not hold and not Game.defeated:
+		if _archer_step(delta):
+			return
 	if melee_target and (not is_instance_valid(melee_target) or melee_target.dead):
 		melee_target = null
 		attacking = false
@@ -463,6 +495,115 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 
+## Archer: walk up to stand-off distance from the wall, then stand and shoot.
+## Returns true while the archer handles its own movement.
+func _archer_step(delta: float) -> bool:
+	var wall_dist := -global_position.z  # the wall runs along z = 0
+	if wall_dist > stand_off:
+		return false  # keep walking with the normal movement code
+	velocity.x = 0.0
+	velocity.z = 0.0
+	if not is_on_floor():
+		velocity.y -= 9.8 * delta
+	move_and_slide()
+	var target := _pick_shot_target()
+	if target == null:
+		_play_loop("Idle")
+		fire_timer = min(fire_timer, 1.0)
+		return true
+	var to := target.global_position - global_position
+	to.y = 0.0
+	_face(to, delta)
+	if drawing:
+		draw_timer -= delta
+		if draw_timer <= 0.0:
+			drawing = false
+			_shoot(target)
+		return true
+	fire_timer -= delta
+	if fire_timer <= 0.0:
+		fire_timer = fire_every * randf_range(0.8, 1.2)
+		drawing = true
+		draw_timer = 1.0
+		_play_once("BowDraw", "Attack")
+	else:
+		_play_loop("Idle")
+	return true
+
+
+func _pick_shot_target() -> Node3D:
+	## The player when visible, otherwise the nearest ally in range.
+	var space := get_world_3d().direct_space_state
+	var eye := global_position + Vector3(0, 1.5, 0)
+	var player := get_tree().current_scene.get_node_or_null("Player")
+	if player and not Game.defeated:
+		var head: Vector3 = player.global_position + Vector3(0, 1.6, 0)
+		if eye.distance_to(head) <= fire_range:
+			var q := PhysicsRayQueryParameters3D.create(eye, head, Game.LAYER_WORLD)
+			if not space.intersect_ray(q):
+				return player
+	var best: Node3D = null
+	var bd := fire_range * fire_range
+	for k in get_tree().get_nodes_in_group("knight"):
+		if k.dead or k.faction == faction:
+			continue
+		var d: float = global_position.distance_squared_to(k.global_position)
+		if d < bd:
+			bd = d
+			best = k
+	return best
+
+
+func _shoot(target: Node3D) -> void:
+	_play_once("BowShoot", "Attack")
+	var origin := global_position + Vector3(0, 1.5, 0)
+	var aim: Vector3 = target.global_position + Vector3(0, 1.4 if target is CharacterBody3D and target.has_method("stun") else 1.0, 0)
+	var t := origin.distance_to(aim) / arrow_speed
+	aim += target.velocity * t * 0.8  # lead
+	aim += Vector3(randf_range(-spread, spread), randf_range(-spread * 0.4, spread * 0.4), randf_range(-spread, spread))
+	# ballistic: solve the launch direction for the arc (flat-ish, high speed)
+	var flat := Vector3(aim.x - origin.x, 0, aim.z - origin.z)
+	var dist := flat.length()
+	var dy := aim.y - origin.y
+	var v2 := arrow_speed * arrow_speed
+	var g := 9.8
+	var disc := v2 * v2 - g * (g * dist * dist + 2.0 * dy * v2)
+	var vel: Vector3
+	if disc > 0.0:
+		var angle := atan((v2 - sqrt(disc)) / (g * dist))
+		vel = flat.normalized() * cos(angle) * arrow_speed + Vector3.UP * sin(angle) * arrow_speed
+	else:
+		vel = (aim - origin).normalized() * arrow_speed + Vector3.UP * 6.0
+	var arrow := ArrowScene.instantiate()
+	get_tree().current_scene.add_child(arrow)
+	arrow.launch(origin + vel.normalized() * 0.8, vel, self)
+	Game.arrows += 1
+	if target.has_method("stun"):
+		print("ARCHER shoots at the player from %.0f m" % origin.distance_to(aim))
+
+
+func _play_once(anim_name: String, fallback: String) -> void:
+	if anim == null:
+		return
+	var n := anim_name if anim.has_animation(anim_name) else fallback
+	if anim.has_animation(n):
+		anim.play(n, 0.1)
+
+
+## Arrow hit on a knight: one melee HP, limbs slow, head kills.
+func take_arrow(zone: String, pos: Vector3, dir: Vector3) -> void:
+	if dead:
+		return
+	var BulletScript := load("res://scripts/bullet.gd")
+	BulletScript.spawn_puff(get_tree().current_scene, pos, -dir, Color(0.55, 0.08, 0.05, 0.9), 8, 0.2)
+	if zone == "shield":
+		return
+	melee_hp -= 2 if zone == "head" else 1
+	if melee_hp <= 0:
+		Game.melee_deaths += 1
+		_die_animated()
+
+
 func _follow_ram(delta: float) -> void:
 	## Ram carrier: keep our handle position beside the log.
 	var goal: Vector3 = ram.global_position + ram.global_transform.basis * ram_offset
@@ -538,6 +679,8 @@ func hit_zone(zone: String, pos: Vector3, impulse: Vector3) -> String:
 			Game.award("kill")
 			if priority:
 				Game.award("priority")
+			if points_kind != "":
+				Game.award(points_kind)
 			if death_stagger > 0.0:
 				_captain_died()
 		Game.last_kill = self

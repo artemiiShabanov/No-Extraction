@@ -49,7 +49,7 @@ func _ready() -> void:
 	Game.gate.fell.connect(_on_gate_fell)
 
 	player = PlayerScene.instantiate()
-	player.position = Vector3(15.0, 10.1, 0.0)
+	player.position = Vector3(15.5, 10.1, 0.0)  # centred on a crenel gap
 	add_child(player)
 
 	_build_hud()
@@ -140,6 +140,7 @@ func _process(_delta: float) -> void:
 	hud.text = "%s\nочки %d\nAMMO %d / %d    [R] reload\nKILLS %d  (headshots %d, blocked by shields %d, allies hit %d)\nENEMIES %d   ALLIES %d   melee deaths %d\nFPS %d" % [
 		waves.status_text(), Game.run_points, player.ammo, player.magazine_size, Game.kills, Game.headshots, Game.blocked, Game.ally_kills,
 		spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.melee_deaths, Engine.get_frames_per_second()]
+	hud.text += "   stuns %d" % Game.stuns
 	if Input.is_action_just_pressed("next_wave") and not Debug.input_blocked():
 		waves.start_next_wave()
 	if Game.auto_test:
@@ -246,18 +247,20 @@ func _auto_test() -> void:
 	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 40 and Game.screenshot_path != "":
 		_screenshot(Game.screenshot_path.replace(".png", "_gate.png"))
 	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 50:
-		# close-up of a captain if one is alive
-		for k in get_tree().get_nodes_in_group("knight"):
-			if k.type_id == "captain" and not k.dead:
-				var fwd: Vector3 = -k.global_transform.basis.z
-				Debug.cam.global_position = k.global_position + fwd * 4.5 + Vector3(0, 1.8, 0)
-				Debug.cam.look_at(k.global_position + Vector3(0, 1.2, 0))
-				Debug.cam_yaw = Debug.cam.rotation.y
-				Debug.cam_pitch = Debug.cam.rotation.x
-				break
+		_closeup("captain")
 	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 65 and Game.screenshot_path != "":
 		_screenshot(Game.screenshot_path.replace(".png", "_captain.png"))
-	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 90 and Debug.freecam:
+	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 80:
+		_closeup("archer")
+	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 95 and Game.screenshot_path != "":
+		_screenshot(Game.screenshot_path.replace(".png", "_archer.png"))
+	# stun overlay check
+	if frame == 300:
+		player.immune_until = 0.0
+		player.stun(Vector3(0, 0, 1))
+	if frame == 312 and Game.screenshot_path != "":
+		_screenshot(Game.screenshot_path.replace(".png", "_stun.png"))
+	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 110 and Debug.freecam:
 		Debug.toggle_freecam()
 		Input.action_press("aim")
 	if frame == Game.test_frames - 30:
@@ -267,8 +270,8 @@ func _auto_test() -> void:
 		player.aim_at(Vector3(0.0, 1.0, -22.0))
 	if frame == Game.test_frames - 10 and Game.screenshot_path != "":
 		_screenshot(Game.screenshot_path.replace(".png", "_field.png"))
-		print("END enemies %d allies %d | kills %d headshots %d blocked %d melee deaths %d" % [
-			spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.kills, Game.headshots, Game.blocked, Game.melee_deaths])
+		print("END enemies %d allies %d | kills %d headshots %d blocked %d melee deaths %d | arrows %d stuns %d" % [
+			spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.kills, Game.headshots, Game.blocked, Game.melee_deaths, Game.arrows, Game.stuns])
 	if frame == Game.test_frames:
 		Input.action_release("aim")
 		get_tree().quit()
@@ -278,6 +281,18 @@ func _on_gate_fell() -> void:
 	# short breach sequence: enemies pour in for a few seconds, then the run is lost
 	print("GATE breach sequence")
 	get_tree().create_timer(4.0).timeout.connect(waves.lose)
+
+
+func _closeup(type_id: String) -> void:
+	## Park the free camera in front of the first living knight of a type.
+	for k in get_tree().get_nodes_in_group("knight"):
+		if k.type_id == type_id and not k.dead:
+			var fwd: Vector3 = -k.global_transform.basis.z
+			Debug.cam.global_position = k.global_position + fwd * 4.5 + Vector3(0, 1.8, 0)
+			Debug.cam.look_at(k.global_position + Vector3(0, 1.2, 0))
+			Debug.cam_yaw = Debug.cam.rotation.y
+			Debug.cam_pitch = Debug.cam.rotation.x
+			return
 
 
 func _ballistic_aim_point(k: Node3D) -> Vector3:

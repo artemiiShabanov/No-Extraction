@@ -6,6 +6,7 @@ Each prop is authored so that in Godot the grip sits at the origin and the
 Usage:
     blender -b -P tools/blender/build_weapons.py -- <out_dir>
 """
+import math
 import os
 import sys
 
@@ -116,6 +117,43 @@ box(parts, mats, "Cap", (0.5, 0.3, 0.5), (0, -1.55, 0), "Armor")
 for y in (-1.0, 0.0, 1.0):
     box(parts, mats, "Bar", (1.4, 0.07, 0.07), (0, y, 0.05), "Dark")
 export(parts, "RamLog")
+
+# Bow: held in the left hand, limbs along Blender Z (Godot +Y, along the hand bone),
+# string on the +Y side (Godot -Z... the side facing the archer's body is set by the offset)
+mats = reset()
+mats["String"] = make_mat("String", (0.9, 0.88, 0.8))
+parts = []
+box(parts, mats, "Grip", (0.05, 0.06, 0.16), (0, 0, 0), "Leather")
+box(parts, mats, "LimbUp1", (0.04, 0.05, 0.36), (0, -0.04, 0.24), "Wood")
+box(parts, mats, "LimbUp2", (0.035, 0.045, 0.30), (0, -0.14, 0.53), "Wood")
+box(parts, mats, "LimbDown1", (0.04, 0.05, 0.36), (0, -0.04, -0.24), "Wood")
+box(parts, mats, "LimbDown2", (0.035, 0.045, 0.30), (0, -0.14, -0.53), "Wood")
+box(parts, mats, "String", (0.012, 0.012, 1.3), (0, -0.28, 0), "String")
+export(parts, "Bow")
+
+# Quiver: on the back, along Godot +Y (Blender Z)
+mats = reset()
+parts = []
+bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.07, depth=0.6, location=(0, 0, 0))
+q = bpy.context.active_object
+q.name = "Quiver"
+q.data.materials.append(mats["Leather"])
+parts.append(q)
+for i in range(5):
+    a = i / 5 * 6.2832
+    box(parts, mats, "ArrowShaft", (0.012, 0.012, 0.5), (0.035 * math.cos(a), 0.035 * math.sin(a), 0.4), "Wood")
+    box(parts, mats, "Fletch", (0.04, 0.012, 0.08), (0.035 * math.cos(a), 0.035 * math.sin(a), 0.62), "Shield")
+export(parts, "Quiver")
+
+# Arrow: shaft along Blender -Y (Godot +Z is... the projectile script points -Z at the velocity)
+mats = reset()
+mats["String"] = make_mat("String", (0.9, 0.88, 0.8))
+parts = []
+box(parts, mats, "Shaft", (0.02, 0.9, 0.02), (0, 0, 0), "Wood")
+box(parts, mats, "Head", (0.05, 0.1, 0.012), (0, -0.48, 0), "Armor")
+box(parts, mats, "FletchA", (0.012, 0.14, 0.06), (0, 0.38, 0.03), "Shield")
+box(parts, mats, "FletchB", (0.06, 0.14, 0.012), (0.03, 0.38, 0), "Shield")
+export(parts, "Arrow")
 
 # Spear: for later enemy variants
 mats = reset()

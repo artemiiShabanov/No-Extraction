@@ -73,5 +73,26 @@
     "damage": 25,
     "hit_every": 3.0,
     "min_crew": 4
+  },
+  "archer": {
+    "label": "Лучник",
+    "cost": 1.5,
+    "hp": 2,
+    "melee_hp": 2,
+    "speed": [
+      5.0,
+      6.0
+    ],
+    "tunic": "#4e5a2e",
+    "shield": false,
+    "scale": 1.0,
+    "priority": false,
+    "ranged": true,
+    "stand_off": 52.0,
+    "range": 75.0,
+    "fire_every": 4.5,
+    "spread": 4.0,
+    "arrow_speed": 30.0,
+    "points": "archer"
   }
 }

@@ -36,6 +36,8 @@ var headshots := 0
 var blocked := 0
 var ally_kills := 0  # allies killed by the player (friendly fire)
 var melee_deaths := 0
+var stuns := 0
+var arrows := 0
 var last_kill: Node3D
 var terrain: Node3D  # set by Terrain when it enters the tree
 var gate: Node3D  # set by Gate when it enters the tree

@@ -116,8 +116,8 @@ func _pair_duels() -> void:
 	var free_allies: Array = []
 	var free_enemies: Array = []
 	for k in get_children():
-		if not (k is CharacterBody3D) or k.dead or k.melee_target != null or k.fleeing or k.ram != null:
-			continue
+		if not (k is CharacterBody3D) or k.dead or k.melee_target != null or k.fleeing or k.ram != null or k.ranged:
+			continue  # archers stand off; allied archers (#15) will answer them
 		if k.faction == Game.Faction.ALLY:
 			free_allies.append(k)
 		else:

@@ -17,7 +17,13 @@
     "headshot": 5,
     "priority": 50,
     "wave": 100,
-    "ram": 75
+    "ram": 75,
+    "archer": 30
   },
-  "gate_effects": false
+  "gate_effects": false,
+  "stun": {
+    "duration": 1.2,
+    "recovery": 1.0,
+    "immunity": 2.0
+  }
 }

@@ -8,7 +8,7 @@ extends CanvasLayer
 
 const KEYS := {
 	"debug_menu": KEY_F1, "debug_freecam": KEY_F2, "debug_hitboxes": KEY_F3,
-	"debug_spawn": KEY_F5, "debug_kill_all": KEY_F6, "debug_next_wave": KEY_F7, "debug_gate": KEY_F8, "debug_bookmark": KEY_F11, "debug_screenshot": KEY_F12,
+	"debug_spawn": KEY_F5, "debug_kill_all": KEY_F6, "debug_next_wave": KEY_F7, "debug_gate": KEY_F8, "debug_stun": KEY_F9, "debug_bookmark": KEY_F11, "debug_screenshot": KEY_F12,
 }
 const ZONE_COLORS := {"head": Color(1, 0.2, 0.2, 0.35), "torso": Color(1, 0.6, 0.1, 0.3), "limb": Color(0.3, 0.6, 1, 0.3), "shield": Color(1, 1, 0.2, 0.35)}
 
@@ -74,6 +74,7 @@ func _build_ui() -> void:
 	_button(box, "F6  Убить всех врагов", kill_all_enemies)
 	_button(box, "F7  Следующая волна", next_wave)
 	_button(box, "F8  Ворота -50 HP", damage_gate)
+	_button(box, "F9  Оглушить игрока", stun_player)
 	_button(box, "Бесконечные патроны", toggle_infinite_ammo)
 	_button(box, "Статистика вкл/выкл", func(): show_stats = not show_stats)
 	var row := HBoxContainer.new()
@@ -126,6 +127,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		next_wave()
 	elif event.is_action_pressed("debug_gate"):
 		damage_gate()
+	elif event.is_action_pressed("debug_stun"):
+		stun_player()
 	elif event.is_action_pressed("debug_bookmark"):
 		bookmark()
 	elif event.is_action_pressed("debug_screenshot"):
@@ -273,6 +276,13 @@ func next_wave() -> void:
 	var w := get_tree().current_scene.get_node_or_null("Waves")
 	if w:
 		w.start_next_wave()
+
+
+func stun_player() -> void:
+	var p := get_tree().current_scene.get_node_or_null("Player")
+	if p:
+		p.immune_until = 0.0
+		p.stun(Vector3(0, 0, 1))
 
 
 func damage_gate() -> void:

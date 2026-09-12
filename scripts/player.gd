@@ -28,6 +28,12 @@ var recoil_pitch := 0.0
 var rifle_kick := 0.0
 var bob_time := 0.0
 var mouse_captured := true
+var stunned_until := 0.0
+var recover_until := 0.0
+var immune_until := 0.0
+var stun_kick := Vector2.ZERO
+var stun_overlay: ColorRect
+var stun_cfg := {"duration": 1.2, "recovery": 1.0, "immunity": 2.0}
 
 
 func _ready() -> void:
@@ -38,6 +44,57 @@ func _ready() -> void:
 	rifle_holder.rotation = HIP_ROT
 	collision_layer = Game.LAYER_PLAYER
 	collision_mask = Game.LAYER_WORLD
+	var cfg := WaveManager._load_json("res://data/castle.json")
+	stun_cfg = cfg.get("stun", stun_cfg)
+	_build_stun_overlay()
+
+
+func _build_stun_overlay() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 5
+	add_child(layer)
+	stun_overlay = ColorRect.new()
+	stun_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	stun_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sh := Shader.new()
+	sh.code = """
+shader_type canvas_item;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+uniform float strength : hint_range(0.0, 1.0) = 0.0;
+void fragment() {
+	vec2 uv = SCREEN_UV;
+	vec3 col = textureLod(screen_tex, uv, strength * 3.5).rgb;
+	float d = distance(uv, vec2(0.5));
+	float vig = smoothstep(0.25, 0.75, d) * strength;
+	col = mix(col, vec3(0.35, 0.02, 0.0), vig);
+	COLOR = vec4(col, strength > 0.001 ? 1.0 : 0.0);
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	stun_overlay.material = mat
+	stun_overlay.visible = false
+	layer.add_child(stun_overlay)
+
+
+func is_stunned() -> bool:
+	return Time.get_ticks_msec() / 1000.0 < stunned_until
+
+
+## Arrow hit: knocked out of the scope, camera kicked, can't fire for a moment.
+func stun(dir: Vector3) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now < immune_until:
+		return
+	stunned_until = now + float(stun_cfg.duration)
+	recover_until = stunned_until + float(stun_cfg.recovery)
+	immune_until = recover_until + float(stun_cfg.immunity)
+	stun_kick = Vector2(randf_range(-0.25, 0.25), randf_range(0.1, 0.22))
+	camera.rotation.x = clamp(camera.rotation.x + stun_kick.y, -1.4, 1.4)
+	rotate_y(stun_kick.x)
+	fire_cooldown = max(fire_cooldown, float(stun_cfg.duration))
+	Game.stuns += 1
+	print("PLAYER stunned by an arrow")
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -71,8 +128,9 @@ func _physics_process(delta: float) -> void:
 	velocity.z = move_toward(velocity.z, dir.z * speed, 40.0 * delta)
 	move_and_slide()
 
-	# aiming
-	aiming = Input.is_action_pressed("aim") and mouse_captured and not Debug.input_blocked()
+	# aiming (a stun throws us out of the scope)
+	aiming = Input.is_action_pressed("aim") and mouse_captured and not Debug.input_blocked() and not is_stunned()
+	_update_stun(delta)
 	aim_blend = move_toward(aim_blend, 1.0 if aiming else 0.0, delta * 6.0)
 	var eased := smoothstep(0.0, 1.0, aim_blend)
 	camera.fov = lerp(hip_fov, ads_fov, eased)
@@ -90,8 +148,25 @@ func _physics_process(delta: float) -> void:
 	camera.rotation.x += recoil_pitch * delta * 4.0
 
 
+func _update_stun(delta: float) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	var strength := 0.0
+	if now < stunned_until:
+		strength = 1.0
+		aim_blend = move_toward(aim_blend, 0.0, delta * 12.0)
+		# the world reels
+		camera.rotation.x += sin(now * 23.0) * 0.004
+		rotate_y(cos(now * 17.0) * 0.003)
+	elif now < recover_until:
+		strength = (recover_until - now) / max(float(stun_cfg.recovery), 0.01)
+		camera.rotation.x += sin(now * 9.0) * 0.0015 * strength
+	stun_overlay.visible = strength > 0.001
+	if stun_overlay.visible:
+		(stun_overlay.material as ShaderMaterial).set_shader_parameter("strength", strength)
+
+
 func try_fire() -> void:
-	if fire_cooldown > 0.0 or ammo <= 0:
+	if fire_cooldown > 0.0 or ammo <= 0 or is_stunned():
 		return
 	if not Debug.infinite_ammo:
 		ammo -= 1
