@@ -46,6 +46,23 @@ var defeated := false
 var points_cfg := {"kill": 10, "headshot": 5, "priority": 50, "wave": 100}
 
 
+# 3D is rendered at a bounded pixel count and upscaled with FSR2, so a Retina fullscreen
+# (2940x1846) does not cost 3.4x the frame time of the 1600x900 window. The HUD stays native.
+const TARGET_3D_PIXELS := 2.2e6
+var render_scale_override := 0.0  # debug menu: 0 = automatic
+
+
+func apply_render_scale() -> void:
+	var vp := get_tree().root
+	var size := vp.size
+	var scale := render_scale_override
+	if scale <= 0.0:
+		scale = clampf(sqrt(TARGET_3D_PIXELS / max(float(size.x * size.y), 1.0)), 0.5, 1.0)
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2 if scale < 0.999 else Viewport.SCALING_3D_MODE_BILINEAR
+	vp.scaling_3d_scale = scale
+	print("RENDER window %dx%d, 3D scale %.2f (%dx%d)" % [size.x, size.y, scale, int(size.x * scale), int(size.y * scale)])
+
+
 func award(kind: String) -> void:
 	run_points += int(points_cfg.get(kind, 0))
 
@@ -123,6 +140,8 @@ func _ready() -> void:
 	if not auto_test:
 		# fullscreen by default; the auto-test keeps the 1600x900 window so screenshots are stable
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	get_tree().root.size_changed.connect(apply_render_scale)
+	apply_render_scale.call_deferred()
 	if run_seed == 0:
 		run_seed = randi() % 1000000
 	print("RUN seed ", run_seed)

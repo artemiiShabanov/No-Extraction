@@ -84,6 +84,19 @@ func _build_ui() -> void:
 		b.text = "x%s" % ts
 		b.pressed.connect(func(): Engine.time_scale = ts)
 		row.add_child(b)
+	var row2 := HBoxContainer.new()
+	box.add_child(row2)
+	var lbl := Label.new()
+	lbl.text = "3D scale:"
+	row2.add_child(lbl)
+	for sc in [0.0, 0.5, 0.67, 0.85, 1.0]:
+		var b := Button.new()
+		b.text = "auto" if sc == 0.0 else "%.2f" % sc
+		b.pressed.connect(func():
+			Game.render_scale_override = sc
+			Game.apply_render_scale())
+		row2.add_child(b)
+	_button(box, "SDFGI вкл/выкл", toggle_sdfgi)
 	note = LineEdit.new()
 	note.placeholder_text = "Заметка к закладке (F11)"
 	note.custom_minimum_size.x = 320
@@ -150,11 +163,13 @@ func _process(delta: float) -> void:
 				dead += 1
 			else:
 				alive += 1
-		stats.text = "fps %d  frame %.1f ms  physics %.1f ms  draw calls %d  objects %d\nknights alive %d dead %d  time x%s  %s%s" % [
+		var vp := get_tree().root
+		stats.text = "fps %d  frame %.1f ms  physics %.1f ms  draw calls %d  objects %d  3D %dx%d (scale %.2f)\nknights alive %d dead %d  time x%s  %s%s" % [
 			Engine.get_frames_per_second(), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 			Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
 			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
 			Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
+			int(vp.size.x * vp.scaling_3d_scale), int(vp.size.y * vp.scaling_3d_scale), vp.scaling_3d_scale,
 			alive, dead, Engine.time_scale,
 			"FREECAM " if freecam else "", "INF AMMO " if infinite_ammo else ""]
 	if freecam and cam:
@@ -276,6 +291,12 @@ func next_wave() -> void:
 	var w := get_tree().current_scene.get_node_or_null("Waves")
 	if w:
 		w.start_next_wave()
+
+
+func toggle_sdfgi() -> void:
+	for n in get_tree().current_scene.find_children("*", "WorldEnvironment", true, false):
+		n.environment.sdfgi_enabled = not n.environment.sdfgi_enabled
+		print("DEBUG sdfgi ", n.environment.sdfgi_enabled)
 
 
 func stun_player() -> void:
