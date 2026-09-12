@@ -49,7 +49,9 @@ func _ready() -> void:
 	Game.gate.fell.connect(_on_gate_fell)
 
 	player = PlayerScene.instantiate()
-	player.position = Vector3(15.5, 10.1, 0.0)  # centred on a crenel gap
+	player.position = Vector3(9.7, 10.1, -1.2)  # centred on a crenel gap, close to the parapet
+	if Game.auto_test:
+		player.reload_time = 0.3  # the aim bot fires every 40 frames
 	add_child(player)
 
 	_build_hud()
@@ -140,8 +142,11 @@ func _build_hud() -> void:
 
 func _process(_delta: float) -> void:
 	frame += 1
-	hud.text = "%s\nочки %d\nAMMO %d / %d    [R] reload\nKILLS %d  (headshots %d, blocked by shields %d, allies hit %d)\nENEMIES %d   ALLIES %d   melee deaths %d\nFPS %d" % [
-		waves.status_text(), Game.run_points, player.ammo, player.magazine_size, Game.kills, Game.headshots, Game.blocked, Game.ally_kills,
+	var ammo_line := "ПАТРОНЫ %d | %d в запасе%s" % [player.ammo, player.reserve, "   ПЕРЕЗАРЯДКА" if player.reloading > 0.0 else ""]
+	if player.total_ammo() == 0 and not Debug.infinite_ammo:
+		ammo_line = "ПАТРОНОВ НЕТ до следующей волны"
+	hud.text = "%s\nочки %d\n%s\nKILLS %d  (headshots %d, blocked by shields %d, allies hit %d)\nENEMIES %d   ALLIES %d   melee deaths %d\nFPS %d" % [
+		waves.status_text(), Game.run_points, ammo_line, Game.kills, Game.headshots, Game.blocked, Game.ally_kills,
 		spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.melee_deaths, Engine.get_frames_per_second()]
 	hud.text += "   stuns %d" % Game.stuns
 	if Input.is_action_just_pressed("next_wave") and not Debug.input_blocked():
@@ -166,11 +171,11 @@ func _auto_test() -> void:
 		Input.parse_input_event(click)
 	if frame == 104:
 		print("INPUT left click fire %s (ammo %d)" % ["OK" if player.ammo == player.magazine_size - 1 else "FAIL", player.ammo])
+		player.resupply(int(waves.current_wave().get("ammo", 10)))
 		var release := InputEventMouseButton.new()
 		release.button_index = MOUSE_BUTTON_LEFT
 		release.pressed = false
 		Input.parse_input_event(release)
-		player.ammo = player.magazine_size
 	# waves: start immediately, and start the next one 3 s after a wave is cleared
 	if frame == 5:
 		waves.start_next_wave()
@@ -257,11 +262,11 @@ func _auto_test() -> void:
 		_closeup("archer")
 	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 95 and Game.screenshot_path != "":
 		_screenshot(Game.screenshot_path.replace(".png", "_archer.png"))
-	# stun overlay check
-	if frame == 300:
+	# stun overlay check (early, so the stun is over before the aim bot starts at 260)
+	if frame == 110:
 		player.immune_until = 0.0
 		player.stun(Vector3(0, 0, 1))
-	if frame == 312 and Game.screenshot_path != "":
+	if frame == 122 and Game.screenshot_path != "":
 		_screenshot(Game.screenshot_path.replace(".png", "_stun.png"))
 	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 110 and Debug.freecam:
 		Debug.toggle_freecam()
@@ -315,7 +320,6 @@ func _nearest_knight(want_dead: bool = false) -> Node3D:
 	var bd := INF
 	var space := get_world_3d().direct_space_state
 	var eye: Vector3 = player.camera.global_position
-	var muzzle: Vector3 = player.muzzle.global_position
 	for k in get_tree().get_nodes_in_group("knight"):
 		if k.dead != want_dead or k.faction != Game.Faction.ENEMY:
 			continue
@@ -324,8 +328,6 @@ func _nearest_knight(want_dead: bool = false) -> Node3D:
 			continue
 		var aim: Vector3 = k.global_position + Vector3(0, 1.1, 0)
 		if space.intersect_ray(PhysicsRayQueryParameters3D.create(eye, aim, Game.LAYER_WORLD)):
-			continue
-		if space.intersect_ray(PhysicsRayQueryParameters3D.create(muzzle, aim, Game.LAYER_WORLD)):
 			continue
 		bd = d
 		best = k

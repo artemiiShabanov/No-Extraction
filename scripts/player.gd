@@ -10,7 +10,8 @@ const BulletScene := preload("res://scenes/bullet.tscn")
 @export var hip_fov := 72.0
 @export var ads_fov := 14.0
 @export var bolt_time := 1.1
-@export var magazine_size := 10
+@export var magazine_size := 5
+@export var reload_time := 2.2
 
 @onready var camera: Camera3D = $Camera
 @onready var rifle_holder: Node3D = $Camera/RifleHolder
@@ -20,7 +21,9 @@ const HIP_POS := Vector3(0.26, -0.24, -0.42)
 const HIP_ROT := Vector3(0.0, 0.06, 0.0)
 const ADS_POS := Vector3(0.0, -0.165, -0.30)
 
-var ammo := 10
+var ammo := 5  # rounds in the magazine
+var reserve := 5  # rounds left for this wave
+var reloading := 0.0
 var aiming := false
 var aim_blend := 0.0
 var fire_cooldown := 0.0
@@ -110,7 +113,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("fire") and mouse_captured:
 		try_fire()
 	if event.is_action_pressed("reload"):
-		ammo = magazine_size
+		reload()
 
 
 func _physics_process(delta: float) -> void:
@@ -137,6 +140,12 @@ func _physics_process(delta: float) -> void:
 
 	# rifle sway, bob, kick
 	fire_cooldown = max(fire_cooldown - delta, 0.0)
+	if reloading > 0.0:
+		reloading -= delta
+		if reloading <= 0.0:
+			var take := mini(magazine_size - ammo, reserve)
+			ammo += take
+			reserve -= take
 	recoil_pitch = lerp(recoil_pitch, 0.0, delta * 8.0)
 	rifle_kick = lerp(rifle_kick, 0.0, delta * 10.0)
 	var planar := Vector2(velocity.x, velocity.z).length()
@@ -165,9 +174,31 @@ func _update_stun(delta: float) -> void:
 		(stun_overlay.material as ShaderMaterial).set_shader_parameter("strength", strength)
 
 
-func try_fire() -> void:
-	if fire_cooldown > 0.0 or ammo <= 0 or is_stunned():
+## Give the player this wave's ammunition: full magazine, the rest in reserve.
+func resupply(total: int) -> void:
+	ammo = mini(total, magazine_size)
+	reserve = max(total - ammo, 0)
+	reloading = 0.0
+
+
+func reload() -> void:
+	if reloading > 0.0 or ammo >= magazine_size or reserve <= 0 or is_stunned():
 		return
+	reloading = reload_time
+	rifle_kick += 0.05
+
+
+func total_ammo() -> int:
+	return ammo + reserve
+
+
+func try_fire() -> void:
+	if fire_cooldown > 0.0 or is_stunned() or reloading > 0.0:
+		return
+	if ammo <= 0:
+		if not Debug.infinite_ammo:
+			reload()
+			return
 	if not Debug.infinite_ammo:
 		ammo -= 1
 	fire_cooldown = bolt_time
@@ -175,9 +206,10 @@ func try_fire() -> void:
 	rifle_kick += 0.07
 	var bullet := BulletScene.instantiate()
 	get_tree().current_scene.add_child(bullet)
-	var origin: Vector3 = muzzle.global_position if muzzle else camera.global_position
-	var far := camera.global_position - camera.global_transform.basis.z * 1000.0
-	bullet.launch(origin, (far - origin).normalized())
+	# the bullet flies from the eye (what you see is what you hit); the tracer starts at the muzzle
+	var origin: Vector3 = camera.global_position - camera.global_transform.basis.z * 0.3
+	var visual: Vector3 = muzzle.global_position if muzzle else origin
+	bullet.launch(origin, -camera.global_transform.basis.z, visual)
 
 
 func aim_at(target: Vector3) -> void:

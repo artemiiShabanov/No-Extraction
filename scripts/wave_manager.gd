@@ -86,6 +86,9 @@ func start_next_wave() -> void:
 		Game.play_horn()
 	wave_time = 0.0
 	state = State.ACTIVE
+	var player := get_tree().current_scene.get_node_or_null("Player")
+	if player:
+		player.resupply(int(current_wave().get("ammo", 10)))
 	var info := _describe(pending)
 	info["name"] = current_wave().get("name", "")
 	print("WAVE %d/%d start: %s" % [wave_index + 1, wave_count(), info])

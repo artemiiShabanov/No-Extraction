@@ -17,10 +17,10 @@ var head: MeshInstance3D
 var active := false
 
 
-func launch(origin: Vector3, direction: Vector3) -> void:
+func launch(origin: Vector3, direction: Vector3, visual_origin: Vector3 = Vector3.INF) -> void:
 	global_position = origin
 	velocity = direction.normalized() * speed
-	points = PackedVector3Array([origin])
+	points = PackedVector3Array([visual_origin if visual_origin != Vector3.INF else origin])
 	active = true
 
 

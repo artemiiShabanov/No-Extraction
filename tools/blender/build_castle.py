@@ -102,7 +102,7 @@ def profile_extrude(mats, name, profile_yz, length, material):
     return o
 
 
-def merlons_along_x(mats, x0, x1, y, z, material, step=2.2, width=1.2):
+def merlons_along_x(mats, x0, x1, y, z, material, step=2.6, width=1.2):  # 1.4 m crenels: room to aim obliquely
     x = x0 + step / 2
     while x <= x1 - width / 2 + 0.01:
         box(mats, "Merlon", (width, 0.8, MERLON_H), (x, y, z + MERLON_H / 2), material,
