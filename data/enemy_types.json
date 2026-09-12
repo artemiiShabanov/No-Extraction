@@ -91,7 +91,7 @@
     "stand_off": 52.0,
     "range": 75.0,
     "fire_every": 4.5,
-    "spread": 4.0,
+    "spread": 1.0,
     "arrow_speed": 30.0,
     "points": "archer"
   }
