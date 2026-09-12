@@ -94,6 +94,7 @@ func _build_environment() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
+	Graphics.env = env
 
 	var sun := DirectionalLight3D.new()
 	sun.name = "Sun"
@@ -109,6 +110,8 @@ func _build_environment() -> void:
 	sun.directional_shadow_blend_splits = true
 	sun.shadow_bias = 0.03
 	add_child(sun)
+	Graphics.sun = sun
+	Graphics.apply(Graphics.current, get_tree())
 
 
 func _build_hud() -> void:

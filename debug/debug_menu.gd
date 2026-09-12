@@ -96,6 +96,18 @@ func _build_ui() -> void:
 			Game.render_scale_override = sc
 			Game.apply_render_scale())
 		row2.add_child(b)
+	var row3 := HBoxContainer.new()
+	box.add_child(row3)
+	var lbl3 := Label.new()
+	lbl3.text = "Графика:"
+	row3.add_child(lbl3)
+	for preset in ["low", "medium", "high"]:
+		var b := Button.new()
+		b.text = preset
+		b.pressed.connect(func():
+			Graphics.apply(preset, get_tree())
+			Graphics.save_choice())
+		row3.add_child(b)
 	_button(box, "SDFGI вкл/выкл", toggle_sdfgi)
 	note = LineEdit.new()
 	note.placeholder_text = "Заметка к закладке (F11)"
@@ -164,12 +176,12 @@ func _process(delta: float) -> void:
 			else:
 				alive += 1
 		var vp := get_tree().root
-		stats.text = "fps %d  frame %.1f ms  physics %.1f ms  draw calls %d  objects %d  3D %dx%d (scale %.2f)\nknights alive %d dead %d  time x%s  %s%s" % [
+		stats.text = "fps %d  frame %.1f ms  physics %.1f ms  draw calls %d  objects %d  3D %dx%d (scale %.2f, %s)\nknights alive %d dead %d  time x%s  %s%s" % [
 			Engine.get_frames_per_second(), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 			Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
 			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
 			Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
-			int(vp.size.x * vp.scaling_3d_scale), int(vp.size.y * vp.scaling_3d_scale), vp.scaling_3d_scale,
+			int(vp.size.x * vp.scaling_3d_scale), int(vp.size.y * vp.scaling_3d_scale), vp.scaling_3d_scale, Graphics.current,
 			alive, dead, Engine.time_scale,
 			"FREECAM " if freecam else "", "INF AMMO " if infinite_ammo else ""]
 	if freecam and cam:
