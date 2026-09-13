@@ -33,6 +33,7 @@ var gate_test := false  # --gate-test: the auto-test forces the gate to fall
 var gate_cam := false  # --gate-cam[=fraction]: the auto-test photographs the gate from above (default at 60%)
 var gate_cam_at := 0.6
 var passive := false  # --passive: the aim bot does not shoot
+var gfx_forced := false  # --gfx=preset: ignore the saved choice (tests)
 var kills := 0
 var headshots := 0
 var blocked := 0
@@ -177,10 +178,19 @@ func _ready() -> void:
 				gate_cam_at = float(arg.get_slice("=", 1))
 		elif arg == "--passive":
 			passive = true
+		elif arg.begins_with("--gfx="):
+			Graphics.current = arg.get_slice("=", 1)
+			gfx_forced = true
+		elif arg.begins_with("--tweak="):
+			for pair in arg.get_slice("=", 1).split(","):
+				var kv := pair.split(":")
+				if kv.size() == 2:
+					Graphics.overrides[kv[0]] = float(kv[1]) if kv[1].is_valid_float() else kv[1]
 	if not auto_test:
 		# fullscreen by default; the auto-test keeps the 1600x900 window so screenshots are stable
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-	Graphics.load_choice()
+	if not gfx_forced:
+		Graphics.load_choice()
 	get_tree().root.size_changed.connect(apply_render_scale)
 	apply_render_scale.call_deferred()
 	if run_seed == 0:

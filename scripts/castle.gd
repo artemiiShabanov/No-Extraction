@@ -75,29 +75,26 @@ func _place(scene: PackedScene, pos: Vector3, scale_xz: float = 1.0) -> Node3D:
 func _build_boundaries() -> void:
 	var h := 7.0
 	var y := WALK_Y + h / 2
-	# outer parapet and inner edge along both wall halves
+	# outer parapet and inner edge along both wall halves, stopping at the tower bodies
 	for sx in [-1.0, 1.0]:
 		var x0 := 6.5
-		var x1 := WALL_HALF + 6.0
+		var x1 := WALL_HALF - 4.7
 		var cx: float = sx * (x0 + x1) / 2
 		_wall(Vector3(cx, y, -2.55), Vector3(x1 - x0, h, 0.2))
 		_wall(Vector3(cx, y, 2.65), Vector3(x1 - x0, h, 0.2))
-	# gatehouse roof: front and back edges, and the sides except where the stairs land
+	# gatehouse roof: front and back edges only; the sides drop onto the walkway (a shortcut)
 	var ry := ROOF_Y + h / 2
 	_wall(Vector3(0, ry, -3.65), Vector3(13.4, h, 0.2))
 	_wall(Vector3(0, ry, 3.65), Vector3(13.4, h, 0.2))
-	for sx in [-1.0, 1.0]:
-		_wall(Vector3(sx * 6.6, ry, -1.5), Vector3(0.2, h, 4.2))   # outer part of the side
-		_wall(Vector3(sx * 6.6, ry, 3.15), Vector3(0.2, h, 0.9))   # inner corner
-	# corner tower tops: a ring of panels with a gap where the stairs arrive, plus end caps
+	# corner tower tops: a ring of panels with a wide gap where the stairs arrive, plus end caps
 	for sx in [-1.0, 1.0]:
 		var c := Vector3(sx * WALL_HALF, TOWER_TOP_Y + h / 2, 0)
 		var arrival := PI if sx > 0 else 0.0
-		for i in 16:
-			var a := TAU * i / 16
-			if abs(angle_difference(a, arrival)) < 0.3:
+		for i in 24:
+			var a := TAU * i / 24
+			if abs(angle_difference(a, arrival)) < 0.5:
 				continue
-			var seg := _wall(c + Vector3(cos(a), 0, sin(a)) * 4.8, Vector3(2.0, h, 0.2))
+			var seg := _wall(c + Vector3(cos(a), 0, sin(a)) * 4.85, Vector3(1.35, h, 0.2))
 			seg.rotation.y = -a + PI / 2
 		_wall(Vector3(sx * (WALL_HALF + 5.3), y, 0), Vector3(0.2, h, 12.0))
 
@@ -131,6 +128,6 @@ func _rock(center: Vector3, size: float, yaw: float) -> void:
 	var mesh := BoxMesh.new()
 	mesh.size = box.size
 	mi.mesh = mesh
-	mi.material_override = EnvMaterials.stone("StoneTower")
+	mi.material_override = EnvMaterials.stone("StoneTower", true)
 	body.add_child(mi)
 	add_child(body)

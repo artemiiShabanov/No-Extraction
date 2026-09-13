@@ -21,7 +21,7 @@ func launch(origin: Vector3, vel: Vector3, from: Node) -> void:
 func _ready() -> void:
 	var model := ArrowScene.instantiate()
 	add_child(model)
-	EnvMaterials.apply_to(model)
+	EnvMaterials.apply_to(model, true)
 
 
 func _orient() -> void:

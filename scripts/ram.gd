@@ -39,7 +39,7 @@ func _ready() -> void:
 	log = LogScene.instantiate()
 	log.position.y = 1.0
 	add_child(log)
-	EnvMaterials.apply_to(log)
+	EnvMaterials.apply_to(log, true)
 	body = AnimatableBody3D.new()
 	body.collision_layer = Game.LAYER_WORLD
 	body.collision_mask = 0

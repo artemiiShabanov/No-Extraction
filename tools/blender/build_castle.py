@@ -110,6 +110,28 @@ def merlons_along_x(mats, x0, x1, y, z, material, step=2.6, width=1.2):  # 1.4 m
         x += step
 
 
+def box_project_uvs(obj, metres_per_tile=1.0):
+    """World-aligned box projection: 1 UV unit per metre, so Godot materials tile with
+    uv1_scale = 1/tile_size and one texture fetch per map instead of three (triplanar)."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    uv_layer = bm.loops.layers.uv.verify()
+    for f in bm.faces:
+        n = f.normal
+        ax, ay, az = abs(n.x), abs(n.y), abs(n.z)
+        for loop in f.loops:
+            co = obj.matrix_world @ loop.vert.co
+            if az >= ax and az >= ay:
+                uv = (co.x, co.y)
+            elif ax >= ay:
+                uv = (co.y, co.z)
+            else:
+                uv = (co.x, co.z)
+            loop[uv_layer].uv = (uv[0] / metres_per_tile, uv[1] / metres_per_tile)
+    bm.to_mesh(obj.data)
+    bm.free()
+
+
 def export(name):
     bpy.ops.object.select_all(action="DESELECT")
     for o in parts:
@@ -120,6 +142,7 @@ def export(name):
     obj.name = name
     bpy.ops.object.shade_flat()
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    box_project_uvs(obj)
     path = os.path.join(OUT_DIR, f"{name}.glb")
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True,
                               export_animations=False, export_yup=True)
@@ -264,6 +287,7 @@ def build_stairs(name, run, rise, steps, direction):
     for o in parts:
         bpy.context.view_layer.objects.active = o
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        box_project_uvs(o)
     path = os.path.join(OUT_DIR, f"{name}.glb")
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True,
                               export_animations=False, export_yup=True)

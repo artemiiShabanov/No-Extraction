@@ -26,18 +26,22 @@ static func texture(set_id: String, map: String) -> Texture2D:
 	return load(path)
 
 
-## Triplanar PBR material for castle geometry, keyed by the glb material name.
-static func stone(name: String) -> Material:
-	if _cache.has(name):
-		return _cache[name]
+## PBR material for castle geometry, keyed by the glb material name. Castle modules carry
+## world-scale box-projected UVs from Blender (1 unit = 1 m), so they sample each map once;
+## `triplanar` is for meshes without usable UVs (engine primitives, small props).
+static func stone(name: String, triplanar: bool = false) -> Material:
+	var key := name + ("/tri" if triplanar else "")
+	if _cache.has(key):
+		return _cache[key]
 	var spec: Array = STONE_SETS.get(name, STONE_SETS["Stone"])
 	var set_id: String = spec[0]
 	var tint: Color = spec[1]
 	var tile: float = spec[2]
 	var mat := StandardMaterial3D.new()
-	mat.uv1_triplanar = true
-	mat.uv1_world_triplanar = true
-	mat.uv1_triplanar_sharpness = 8.0
+	if triplanar:
+		mat.uv1_triplanar = true
+		mat.uv1_world_triplanar = true
+		mat.uv1_triplanar_sharpness = 8.0
 	mat.uv1_scale = Vector3.ONE / tile
 	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	if has_set(set_id):
@@ -77,12 +81,12 @@ static func stone(name: String) -> Material:
 		mat.albedo_color = base
 		mat.albedo_texture = tex
 		mat.roughness = 0.95
-	_cache[name] = mat
+	_cache[key] = mat
 	return mat
 
 
 ## Apply materials by name to every MeshInstance3D under a node.
-static func apply_to(node: Node) -> void:
+static func apply_to(node: Node, triplanar: bool = false) -> void:
 	for mi in node.find_children("*", "MeshInstance3D", true, false):
 		var mesh: Mesh = mi.mesh
 		if mesh == null:
@@ -90,7 +94,7 @@ static func apply_to(node: Node) -> void:
 		for i in mesh.get_surface_count():
 			var m: Material = mesh.surface_get_material(i)
 			var mat_name := m.resource_name if m else "Stone"
-			mi.set_surface_override_material(i, stone(mat_name))
+			mi.set_surface_override_material(i, stone(mat_name, triplanar))
 
 
 ## Terrain shader material blending grass and trampled mud.
@@ -99,7 +103,7 @@ static func terrain() -> ShaderMaterial:
 	mat.shader = load("res://shaders/terrain.gdshader")
 	var grass := "aerial_grass_rock"
 	var mud := "brown_mud_leaves_01"
-	var textured := has_set(grass) and has_set(mud)
+	var textured := has_set(grass) and has_set(mud) and float(Graphics.overrides.get("terrain_textured", 1.0)) > 0.5
 	if textured:
 		for pair in [[grass, "grass"], [mud, "mud"]]:
 			mat.set_shader_parameter(pair[1] + "_diffuse", texture(pair[0], "diffuse"))

@@ -101,7 +101,7 @@ func _build_ui() -> void:
 	var lbl3 := Label.new()
 	lbl3.text = "Графика:"
 	row3.add_child(lbl3)
-	for preset in ["low", "medium", "high"]:
+	for preset in ["low", "medium", "high", "ultra"]:
 		var b := Button.new()
 		b.text = preset
 		b.pressed.connect(func():

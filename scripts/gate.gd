@@ -36,7 +36,7 @@ func _ready() -> void:
 	stages = cfg.get("stages", stages)
 	slots.resize(int(cfg.get("gate_slots", 6)))
 	effects_enabled = bool(cfg.get("gate_effects", true))
-	wood = EnvMaterials.stone("Wood")
+	wood = EnvMaterials.stone("Wood", true)
 	_build_doors()
 	_build_effects()
 
@@ -66,7 +66,7 @@ func _build_doors() -> void:
 				bm.size = Vector3(DOOR_W / 2 - 0.1, 0.18, 0.06)
 				band.mesh = bm
 				band.position = Vector3(door * DOOR_W / 4, z, side)
-				band.material_override = EnvMaterials.stone("Dark")
+				band.material_override = EnvMaterials.stone("Dark", true)
 				add_child(band)
 				planks.append(band)
 	var shape := CollisionShape3D.new()
