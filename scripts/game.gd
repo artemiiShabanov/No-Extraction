@@ -20,6 +20,7 @@ const LAYER_KNIGHT := 2
 const LAYER_RAGDOLL := 4
 const LAYER_PLAYER := 8
 const LAYER_HITBOX := 16  # per-bone Area3D hit zones on living knights
+const LAYER_BOUNDS := 32  # invisible walls: only the player collides with them
 
 enum Faction { ENEMY, ALLY }
 

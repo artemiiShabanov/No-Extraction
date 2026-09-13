@@ -47,7 +47,7 @@ func _ready() -> void:
 	rifle_holder.position = HIP_POS
 	rifle_holder.rotation = HIP_ROT
 	collision_layer = Game.LAYER_PLAYER
-	collision_mask = Game.LAYER_WORLD
+	collision_mask = Game.LAYER_WORLD | Game.LAYER_BOUNDS
 	var cfg := WaveManager._load_json("res://data/castle.json")
 	stun_cfg = cfg.get("stun", stun_cfg)
 	_build_stun_overlay()

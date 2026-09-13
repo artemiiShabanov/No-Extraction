@@ -156,7 +156,7 @@ profile = [
     (OUTER, 3.0),                             # batter ends 3 m up
     (OUTER, PARAPET_Z), (OUTER - 0.8, PARAPET_Z),  # outer parapet 0.8 thick
     (OUTER - 0.8, WALK_Z), (INNER + 0.4, WALK_Z),   # walkway
-    (INNER + 0.4, WALK_Z + 0.6), (INNER, WALK_Z + 0.6),  # low inner parapet
+    (INNER + 0.4, WALK_Z + 0.9), (INNER, WALK_Z + 0.9),  # inner parapet, waist high
 ]
 profile_extrude(mats, "WallBody", profile, WALL_LEN, "Stone")
 merlons_along_x(mats, -WALL_LEN / 2, WALL_LEN / 2, OUTER - 0.4, PARAPET_Z, "Stone")
@@ -177,7 +177,7 @@ n = 18
 for i in range(n):
     a = i / n * math.tau
     r = R1 + 0.05
-    if i not in (0, 9):  # the stairs from the wall arrive here
+    if math.sin(a) > 0.15:  # outer half only: the inner half stays open for walking
         box(mats, "TowerMerlon", (1.1, 0.7, MERLON_H), (math.cos(a) * r, math.sin(a) * r, H + 1.2 + MERLON_H / 2),
             "StoneTower", rot_z=a + math.pi / 2, bevel=0.06)
     box(mats, "TowerCorbel", (0.5, 0.5, 0.55), (math.cos(a) * (R1 + 0.15), math.sin(a) * (R1 + 0.15), H - 0.4),
@@ -209,12 +209,9 @@ for cutter in (cut, arch, tunnel):
     bpy.data.objects.remove(cutter)
 # roof: merlons all round, ledge and corbels on the outer face
 merlons_along_x(mats, -GW / 2, GW / 2, OUTER + 0.1, GH, "Stone")
-merlons_along_x(mats, -GW / 2, GW / 2, -OUTER - 0.1, GH, "Stone")
+box(mats, "RoofParapetBack", (GW, 0.4, 0.9), (0, -OUTER - 0.3, GH + 0.45), "Stone")
 for sx in (-1, 1):
-    yy = -OUTER + 1.3
-    while yy < OUTER - 0.5:
-        box(mats, "SideMerlon", (0.8, 1.2, MERLON_H), (sx * (GW / 2 - 0.4), yy, GH + MERLON_H / 2), "Stone", bevel=0.06)
-        yy += 2.6
+    box(mats, "RoofParapetSide", (0.4, GD + 0.4, 0.9), (sx * (GW / 2 - 0.2), 0.0, GH + 0.45), "Stone")
 box(mats, "GateLedge", (GW, 0.35, 0.3), (0, OUTER + 0.6, GH - 1.3), "Stone", bevel=0.04)
 x = -GW / 2 + 0.55
 while x < GW / 2:
@@ -242,16 +239,22 @@ def build_stairs(name, run, rise, steps, direction):
         x = direction * (i + 0.5) * tread
         h = (i + 1) * riser
         box(mats, "Steps", (tread, width, h), (x, 0, h / 2), "Stone")
-    # side wall (a low string wall on the inner side keeps the flight readable)
-    box(mats, "StepsWall", (run, 0.25, 0.9), (direction * run / 2, -width / 2 - 0.12, rise / 2 + 0.45), "Stone")
-    # hidden collision ramp along the step tops
-    length = math.hypot(run, rise)
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(direction * run / 2, 0, rise / 2 - 0.15))
-    ramp = bpy.context.active_object
-    ramp.name = "Ramp"
-    ramp.scale = (length, width, 0.3)
-    ramp.rotation_euler = (0, -direction * math.atan2(rise, run), 0)
-    bpy.ops.object.transform_apply(scale=True, rotation=True)
+    # hidden collision: a solid wedge under the step tops, so nothing walks under the flight
+    mesh = bpy.data.meshes.new("Ramp")
+    bm = bmesh.new()
+    hw = width / 2
+    xe = direction * run
+    v = [bm.verts.new(Vector(p)) for p in [(0, -hw, 0), (0, hw, 0), (xe, hw, 0), (xe, -hw, 0), (xe, hw, rise), (xe, -hw, rise)]]
+    bm.faces.new((v[0], v[1], v[2], v[3]))          # bottom
+    bm.faces.new((v[3], v[2], v[4], v[5]))          # back (vertical)
+    bm.faces.new((v[0], v[5], v[4], v[1]))          # slope
+    bm.faces.new((v[0], v[3], v[5]))                # side
+    bm.faces.new((v[1], v[4], v[2]))                # side
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(mesh)
+    bm.free()
+    ramp = bpy.data.objects.new("Ramp", mesh)
+    bpy.context.scene.collection.objects.link(ramp)
     ramp.data.materials.append(mats["Stone"])
     parts.append(ramp)
     # export without joining: Godot needs the Ramp as a separate mesh

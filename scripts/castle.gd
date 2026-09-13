@@ -82,22 +82,29 @@ func _build_boundaries() -> void:
 		var cx: float = sx * (x0 + x1) / 2
 		_wall(Vector3(cx, y, -2.55), Vector3(x1 - x0, h, 0.2))
 		_wall(Vector3(cx, y, 2.65), Vector3(x1 - x0, h, 0.2))
-	# gatehouse roof: front and back edges
-	_wall(Vector3(0, y, -3.65), Vector3(13.2, h, 0.2))
-	_wall(Vector3(0, y, 3.65), Vector3(13.2, h, 0.2))
-	# corner tower tops: a ring of panels, and end caps beyond the towers
+	# gatehouse roof: front and back edges, and the sides except where the stairs land
+	var ry := ROOF_Y + h / 2
+	_wall(Vector3(0, ry, -3.65), Vector3(13.4, h, 0.2))
+	_wall(Vector3(0, ry, 3.65), Vector3(13.4, h, 0.2))
+	for sx in [-1.0, 1.0]:
+		_wall(Vector3(sx * 6.6, ry, -1.5), Vector3(0.2, h, 4.2))   # outer part of the side
+		_wall(Vector3(sx * 6.6, ry, 3.15), Vector3(0.2, h, 0.9))   # inner corner
+	# corner tower tops: a ring of panels with a gap where the stairs arrive, plus end caps
 	for sx in [-1.0, 1.0]:
 		var c := Vector3(sx * WALL_HALF, TOWER_TOP_Y + h / 2, 0)
-		for i in 14:
-			var a := TAU * i / 14
-			var seg := _wall(c + Vector3(cos(a), 0, sin(a)) * 4.75, Vector3(2.3, h, 0.2))
+		var arrival := PI if sx > 0 else 0.0
+		for i in 16:
+			var a := TAU * i / 16
+			if abs(angle_difference(a, arrival)) < 0.3:
+				continue
+			var seg := _wall(c + Vector3(cos(a), 0, sin(a)) * 4.8, Vector3(2.0, h, 0.2))
 			seg.rotation.y = -a + PI / 2
 		_wall(Vector3(sx * (WALL_HALF + 5.3), y, 0), Vector3(0.2, h, 12.0))
 
 
 func _wall(center: Vector3, size: Vector3) -> StaticBody3D:
 	var body := StaticBody3D.new()
-	body.collision_layer = Game.LAYER_WORLD
+	body.collision_layer = Game.LAYER_BOUNDS  # bullets, arrows and knights pass through
 	body.collision_mask = 0
 	body.position = center
 	var shape := CollisionShape3D.new()

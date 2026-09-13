@@ -22,6 +22,9 @@ var _perf_render_cpu := 0.0
 var _kill_frame := -1
 var _cleared_frames := 0
 var _results_shot := false
+var _below_wall := 0.0
+var _fade: ColorRect
+const SPAWN := Vector3(12.3, 10.1, -1.2)
 
 
 func _ready() -> void:
@@ -72,7 +75,7 @@ func _ready() -> void:
 	add_child(results)
 
 	player = PlayerScene.instantiate()
-	player.position = Vector3(12.3, 10.1, -1.2)  # crenel gap east of the gate tower (radius 3.6 at x = 6.8)
+	player.position = SPAWN  # crenel gap east of the gatehouse
 	if Game.auto_test:
 		player.reload_time = 0.3  # the aim bot fires every 40 frames
 	add_child(player)
@@ -186,8 +189,32 @@ func _process(_delta: float) -> void:
 				_on_victory()
 	if run_over and Input.is_action_just_pressed("interact"):
 		Debug.restart_scene()
+	_fall_watchdog(_delta)
 	if Game.auto_test:
 		_auto_test()
+
+
+## Safety net: whoever ends up below the wall walk is brought back after a blackout.
+func _fall_watchdog(delta: float) -> void:
+	if _fade == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 25
+		add_child(layer)
+		_fade = ColorRect.new()
+		_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_fade.color = Color(0, 0, 0, 0)
+		layer.add_child(_fade)
+	if player.global_position.y < 8.5 and not Debug.freecam and not run_over:
+		_below_wall += delta
+		_fade.color.a = clampf((_below_wall - 0.5) / 1.5, 0.0, 1.0)
+		if _below_wall > 2.5:
+			player.global_position = SPAWN
+			player.velocity = Vector3.ZERO
+			print("PLAYER returned to the wall")
+	else:
+		_below_wall = 0.0
+		_fade.color.a = move_toward(_fade.color.a, 0.0, delta * 2.0)
 
 
 func _auto_test() -> void:
