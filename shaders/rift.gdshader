@@ -36,7 +36,9 @@ void fragment() {
 	// radius of the tear in this direction: a breathing disc with a jagged, drifting edge
 	float ang = atan(uv.y, uv.x);
 	float breathe = 0.03 * sin(t * 1.7) + 0.02 * sin(t * 3.1 + ang * 3.0);
-	float edge = (fbm(vec2(ang * 1.6 + t * 0.12, t * 0.3)) - 0.5) * 0.3;
+	// sample the edge noise on a circle so it is seamless around the disc
+	vec2 ring = vec2(cos(ang), sin(ang)) * 1.4 + vec2(t * 0.12, t * 0.3);
+	float edge = (fbm(ring) - 0.5) * 0.3;
 	float radius = max(0.012, 0.62 * open + (edge + breathe) * open);
 	float d = length(uv * vec2(1.0, 0.92)) - radius;
 	float inside = 1.0 - smoothstep(-0.01, 0.02, d);
