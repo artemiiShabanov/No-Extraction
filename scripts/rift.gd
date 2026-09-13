@@ -6,8 +6,8 @@ class_name Rift
 signal entered(player: Node)
 signal exited(player: Node)
 
-var open := 0.0  # 0 = thin crack, 1 = fully open
-var target_open := 0.15
+var open := 0.0  # 0 = collapsed to a point, 1 = fully open
+var target_open := 0.0
 var mesh: MeshInstance3D
 var mat: ShaderMaterial
 var light: OmniLight3D
@@ -18,7 +18,7 @@ var player_inside := false
 func _ready() -> void:
 	mesh = MeshInstance3D.new()
 	var quad := QuadMesh.new()
-	quad.size = Vector2(2.6, 3.4)
+	quad.size = Vector2(3.2, 3.2)
 	mesh.mesh = quad
 	mesh.position.y = 1.9
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -47,7 +47,7 @@ func _ready() -> void:
 
 
 func set_active(active: bool) -> void:
-	target_open = 1.0 if active else 0.15
+	target_open = 1.0 if active else 0.0
 
 
 func is_active() -> bool:
@@ -55,9 +55,9 @@ func is_active() -> bool:
 
 
 func _process(delta: float) -> void:
-	open = move_toward(open, target_open, delta * (1.2 if target_open > open else 0.6))
+	open = move_toward(open, target_open, delta * (1.2 if target_open > open else 1.6))
 	mat.set_shader_parameter("open", open)
-	light.light_energy = 0.4 + 5.0 * open + sin(Time.get_ticks_msec() * 0.004) * 0.6 * open
+	light.light_energy = 0.15 + 5.0 * open + sin(Time.get_ticks_msec() * 0.004) * 0.6 * open
 	var cam := get_viewport().get_camera_3d()
 	if cam:
 		var to := cam.global_position - global_position

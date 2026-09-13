@@ -1,8 +1,9 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 
-// A vertical tear with jagged edges; inside, an abstract cosmos (nebula + stars), no world preview.
-uniform float open : hint_range(0.0, 1.0) = 0.15;
+// A roughly circular tear with jagged edges that collapses to a point; inside, an abstract
+// cosmos (nebula + stars), no world preview.
+uniform float open : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 col_deep : source_color = vec3(0.08, 0.02, 0.25);
 uniform vec3 col_glow : source_color = vec3(0.15, 0.55, 0.95);
 uniform vec3 col_rim : source_color = vec3(0.75, 0.45, 1.0);
@@ -32,11 +33,12 @@ float fbm(vec2 p) {
 void fragment() {
 	vec2 uv = UV * 2.0 - 1.0;
 	float t = TIME;
-	// half-width of the tear at this height: a lens with breathing, noisy edges
-	float breathe = 0.05 * sin(t * 1.7) + 0.03 * sin(t * 3.1 + uv.y * 4.0);
-	float edge = (fbm(vec2(uv.y * 2.5 + t * 0.15, t * 0.3)) - 0.5) * 0.35;
-	float half_w = max(0.0, (1.0 - uv.y * uv.y) * (0.04 + 0.34 * open) + (edge + breathe) * 0.6 * open);
-	float d = abs(uv.x) - half_w;
+	// radius of the tear in this direction: a breathing disc with a jagged, drifting edge
+	float ang = atan(uv.y, uv.x);
+	float breathe = 0.03 * sin(t * 1.7) + 0.02 * sin(t * 3.1 + ang * 3.0);
+	float edge = (fbm(vec2(ang * 1.6 + t * 0.12, t * 0.3)) - 0.5) * 0.3;
+	float radius = max(0.012, 0.62 * open + (edge + breathe) * open);
+	float d = length(uv * vec2(1.0, 0.92)) - radius;
 	float inside = 1.0 - smoothstep(-0.01, 0.02, d);
 	float rim = 1.0 - smoothstep(0.0, 0.05 + 0.06 * open, abs(d));
 	// cosmos
