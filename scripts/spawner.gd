@@ -111,6 +111,12 @@ func reinforce(ratio: float) -> int:
 	return n
 
 
+## Portal upgrade: a fixed number of allies come out of the gate.
+func reinforce_count(n: int) -> void:
+	for i in n:
+		reinforce_queue.append(Vector3(rng.randf_range(-wall_x_half, wall_x_half), 0.0, rng.randf_range(ally_z_min, ally_z_max)))
+
+
 func _pair_duels() -> void:
 	## Each free ally picks the nearest free enemy within range; both lock onto each other.
 	var free_allies: Array = []

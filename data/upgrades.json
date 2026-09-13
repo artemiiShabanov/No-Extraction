@@ -1,0 +1,10 @@
+{
+  "notes": "permanent: true = действует до конца забега и уходит из пула; иначе разовый эффект и остаётся в пуле.",
+  "upgrades": [
+    {"id": "gate_repair", "name": "Ремонт ворот", "desc": "+150 прочности воротам, не выше максимума.", "permanent": false, "effect": "gate_repair", "value": 150},
+    {"id": "reinforce", "name": "Подкрепление", "desc": "Из ворот выходят 8 свежих бойцов.", "permanent": false, "effect": "reinforce", "value": 8},
+    {"id": "ammo_cache", "name": "Обоз", "desc": "+10 патронов сразу.", "permanent": false, "effect": "ammo", "value": 10},
+    {"id": "armor_piercing", "name": "Бронебойные", "desc": "Щит больше не блокирует пулю: урон проходит как в корпус.", "permanent": true, "effect": "armor_piercing", "value": 1},
+    {"id": "fast_bolt", "name": "Быстрый затвор", "desc": "Время между выстрелами меньше на 30%.", "permanent": true, "effect": "bolt_time_mul", "value": 0.7}
+  ]
+}

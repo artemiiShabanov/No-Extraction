@@ -660,6 +660,8 @@ func hit_zone(zone: String, pos: Vector3, impulse: Vector3) -> String:
 	if dead:
 		return zone
 	var BulletScript := load("res://scripts/bullet.gd")
+	if zone == "shield" and Game.armor_piercing:
+		zone = "torso"  # armour-piercing rounds go straight through the shield
 	if zone == "shield":
 		Game.blocked += 1
 		BulletScript.spawn_puff(get_tree().current_scene, pos, -impulse.normalized(), Color(1.0, 0.9, 0.6, 1.0), 16, 0.18)

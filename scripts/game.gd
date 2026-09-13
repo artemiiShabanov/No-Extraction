@@ -10,6 +10,7 @@ const KEY_ACTIONS := {
 	"sprint": [KEY_SHIFT],
 	"reload": [KEY_R],
 	"next_wave": [KEY_N],
+	"interact": [KEY_E],
 	"toggle_mouse": [KEY_ESCAPE],
 }
 
@@ -41,6 +42,11 @@ var arrows := 0
 var last_kill: Node3D
 var terrain: Node3D  # set by Terrain when it enters the tree
 var gate: Node3D  # set by Gate when it enters the tree
+var rift: Node3D  # set by Rift when it enters the tree
+var ui_open := false  # a menu owns the mouse; the player ignores input
+var armor_piercing := false  # upgrade: shields no longer block bullets
+var upgrades_taken: Array[String] = []
+var meta_points := 0  # points banked by leaving through the portal (saved in #24)
 var run_points := 0
 var defeated := false
 var points_cfg := {"kill": 10, "headshot": 5, "priority": 50, "wave": 100}

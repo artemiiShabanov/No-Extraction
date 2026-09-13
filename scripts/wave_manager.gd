@@ -9,7 +9,7 @@ signal wave_started(index: int, info: Dictionary)
 signal wave_cleared(index: int, stats: Dictionary)
 signal run_won()
 
-enum State { IDLE, ACTIVE, ROUT, CLEARED, WON, LOST }
+enum State { IDLE, ACTIVE, ROUT, CLEARED, COUNTDOWN, WON, LOST }
 
 const WAVES_PATH := "res://data/waves.json"
 const TYPES_PATH := "res://data/enemy_types.json"
@@ -28,6 +28,8 @@ var rng := RandomNumberGenerator.new()
 var budget_scale := 1.0  # auto-test uses smaller waves
 var castle_cfg := {}
 var _groups := {}  # escort group id -> shared spawn point
+var countdown := 0.0
+var countdown_length := 8.0  # grace after the portal choice before the next wave
 var lane_override := {}   # auto-test: bring spawns closer
 
 
@@ -65,7 +67,28 @@ func next_wave_info() -> Dictionary:
 
 
 func can_start_next() -> bool:
-	return state in [State.IDLE, State.CLEARED] and wave_index + 1 < wave_count()
+	return state in [State.IDLE, State.CLEARED, State.COUNTDOWN] and wave_index + 1 < wave_count()
+
+
+## After the portal choice: the next wave starts in countdown_length seconds (N skips).
+func begin_countdown() -> void:
+	if state == State.CLEARED:
+		state = State.COUNTDOWN
+		countdown = countdown_length
+
+
+## Labels of the enemy types in the next wave, for the portal preview (types only).
+func next_wave_types() -> Array:
+	var info := next_wave_info()
+	var out: Array = []
+	var order := ["swordsman", "berserker", "archer", "captain", "ram"]
+	for t in order:
+		if info.get("types", {}).has(t):
+			out.append(types[t].get("label", t))
+	for t in info.get("types", {}):
+		if not t in order:
+			out.append(types.get(t, {}).get("label", t))
+	return out
 
 
 func start_next_wave() -> void:
@@ -86,6 +109,8 @@ func start_next_wave() -> void:
 		Game.play_horn()
 	wave_time = 0.0
 	state = State.ACTIVE
+	if Game.rift:
+		Game.rift.set_active(false)
 	var player := get_tree().current_scene.get_node_or_null("Player")
 	if player:
 		player.resupply(int(current_wave().get("ammo", 10)))
@@ -166,6 +191,11 @@ func lose() -> void:
 
 
 func _process(delta: float) -> void:
+	if state == State.COUNTDOWN:
+		countdown -= delta
+		if countdown <= 0.0:
+			start_next_wave()
+		return
 	if state != State.ACTIVE and state != State.ROUT:
 		return
 	wave_time += delta
@@ -257,6 +287,8 @@ func _cleared() -> void:
 		state = State.WON
 		print("RUN WON")
 		run_won.emit()
+	elif Game.rift:
+		Game.rift.set_active(true)
 
 
 func status_text() -> String:
@@ -272,7 +304,9 @@ func status_text() -> String:
 				wave_index + 1, wave_count(), current_wave().get("name", ""), alive, pending.size(), priority_alive,
 				"  БЕГУТ!" if state == State.ROUT else ""]
 		State.CLEARED:
-			return "Волна %d отбита за %.0f с. [N] следующая волна" % [wave_index + 1, wave_time]
+			return "Волна %d отбита за %.0f с. Портал открыт: подойдите к разлому и нажмите E" % [wave_index + 1, wave_time]
+		State.COUNTDOWN:
+			return "Волна %d через %d с   [N] начать сейчас" % [wave_index + 2, ceili(countdown)]
 		State.WON:
 			return "ПОБЕДА: все %d волн отбиты, очки %d" % [wave_count(), Game.run_points]
 		State.LOST:

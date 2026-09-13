@@ -51,7 +51,7 @@ func _ready() -> void:
 
 ## True while a debug tool owns the mouse/keyboard: the player must ignore input.
 func input_blocked() -> bool:
-	return enabled and (menu_open or freecam)
+	return Game.ui_open or (enabled and (menu_open or freecam))
 
 
 # ------------------------------------------------------------------ ui
@@ -334,6 +334,10 @@ func restart_scene() -> void:
 	Game.run_points = 0
 	Game.defeated = false
 	Game.gate = null
+	Game.rift = null
+	Game.ui_open = false
+	Game.armor_piercing = false
+	Game.upgrades_taken.clear()
 	if freecam:
 		toggle_freecam()
 	set_menu_open(false)

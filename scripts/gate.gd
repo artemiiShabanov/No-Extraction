@@ -151,6 +151,20 @@ func damage(amount: int, hit_pos: Vector3) -> void:
 		_fall()
 
 
+func repair(amount: int) -> void:
+	if fallen:
+		return
+	hp = mini(hp + amount, max_hp)
+	var new_stage := 0
+	for i in stages.size():
+		if hp <= max_hp * float(stages[i]):
+			new_stage = i + 1
+	if new_stage != stage:
+		stage = new_stage
+		_apply_stage()
+	damaged.emit(hp, stage)
+
+
 func _apply_stage() -> void:
 	# stage 1: a plank knocked out per door; stage 2: smoke, more planks gone; stage 3: fire
 	var to_hide: Array = [[], [0, 5], [0, 1, 5, 6], [0, 1, 2, 5, 6, 7]][mini(stage, 3)]

@@ -6,6 +6,11 @@ const PlayerScene := preload("res://scenes/player.tscn")
 var player: CharacterBody3D
 var spawner: Node3D
 var waves: WaveManager
+var rift: Rift
+var portal: PortalMenu
+var results: Label
+var run_over := false
+var _portal_rng := RandomNumberGenerator.new()
 var hud: Label
 var scope: Control
 var gate_bar: Control
@@ -16,6 +21,7 @@ var _perf_gpu := 0.0
 var _perf_render_cpu := 0.0
 var _kill_frame := -1
 var _cleared_frames := 0
+var _results_shot := false
 
 
 func _ready() -> void:
@@ -47,9 +53,22 @@ func _ready() -> void:
 		waves.lane_override["flank"] = {"spawn_z": [-70, -40]}
 	add_child(waves)
 	Game.gate.fell.connect(_on_gate_fell)
+	if Game.auto_test:
+		waves.countdown_length = 1.5
+	rift = Rift.new()
+	rift.name = "Rift"
+	rift.position = Vector3(17.0, 10.0, 0.3)  # on the walkway east of the gatehouse
+	add_child(rift)
+	portal = PortalMenu.new()
+	portal.name = "Portal"
+	portal.chosen.connect(_on_upgrade_chosen)
+	portal.left.connect(_on_extract)
+	add_child(portal)
+	_portal_rng.seed = Game.run_seed + 991
+	Upgrades.load_pool()
 
 	player = PlayerScene.instantiate()
-	player.position = Vector3(9.7, 10.1, -1.2)  # centred on a crenel gap, close to the parapet
+	player.position = Vector3(12.3, 10.1, -1.2)  # crenel gap east of the gate tower (radius 3.6 at x = 6.8)
 	if Game.auto_test:
 		player.reload_time = 0.3  # the aim bot fires every 40 frames
 	add_child(player)
@@ -150,7 +169,14 @@ func _process(_delta: float) -> void:
 		spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.melee_deaths, Engine.get_frames_per_second()]
 	hud.text += "   stuns %d" % Game.stuns
 	if Input.is_action_just_pressed("next_wave") and not Debug.input_blocked():
-		waves.start_next_wave()
+		if waves.state == WaveManager.State.COUNTDOWN or waves.state == WaveManager.State.IDLE:
+			waves.start_next_wave()
+	if rift.player_inside and rift.is_active() and waves.state == WaveManager.State.CLEARED and not portal.is_open():
+		hud.text += "\n[E] войти в разлом"
+		if Input.is_action_just_pressed("interact") and not Debug.input_blocked():
+			open_portal()
+	if run_over and Input.is_action_just_pressed("interact"):
+		Debug.restart_scene()
 	if Game.auto_test:
 		_auto_test()
 
@@ -179,11 +205,28 @@ func _auto_test() -> void:
 	# waves: start immediately, and start the next one 3 s after a wave is cleared
 	if frame == 5:
 		waves.start_next_wave()
-	if waves.state == WaveManager.State.CLEARED:
+	if waves.state == WaveManager.State.CLEARED and not run_over:
 		_cleared_frames += 1
-		if _cleared_frames > 180:
+		if _cleared_frames == 40:
+			# look at the open rift from a few metres, then walk in and open the portal
+			Input.action_release("aim")
+			player.global_position = rift.global_position + Vector3(-4.5, 0.1, 0.0)
+			player.aim_at(rift.global_position + Vector3(0, 1.6, 0))
+		if _cleared_frames == 60 and Game.screenshot_path != "":
+			_screenshot(Game.screenshot_path.replace(".png", "_rift.png"))
+		if _cleared_frames == 70:
+			player.global_position = rift.global_position + Vector3(-1.5, 0.1, 0.0)
+		if _cleared_frames == 75:
+			open_portal()
+		if _cleared_frames == 90 and Game.screenshot_path != "":
+			_screenshot(Game.screenshot_path.replace(".png", "_portal.png"))
+		if _cleared_frames == 100:
+			if waves.wave_index >= 1 or frame > Game.test_frames - 400:
+				portal.close()
+				_on_extract()
+			else:
+				portal.pick(0)
 			_cleared_frames = 0
-			waves.start_next_wave()
 	# debug tools smoke test: hitbox overlay + menu visible on one screenshot
 	if frame == 150:
 		Debug.toggle_hitboxes()
@@ -280,9 +323,52 @@ func _auto_test() -> void:
 		_screenshot(Game.screenshot_path.replace(".png", "_field.png"))
 		print("END enemies %d allies %d | kills %d headshots %d blocked %d melee deaths %d | arrows %d stuns %d" % [
 			spawner.alive_count(Game.Faction.ENEMY), spawner.alive_count(Game.Faction.ALLY), Game.kills, Game.headshots, Game.blocked, Game.melee_deaths, Game.arrows, Game.stuns])
+	if run_over and Game.screenshot_path != "" and not _results_shot:
+		_results_shot = true
+		_screenshot(Game.screenshot_path.replace(".png", "_results.png"))
 	if frame == Game.test_frames:
 		Input.action_release("aim")
 		get_tree().quit()
+
+
+func open_portal() -> void:
+	var offers := Upgrades.roll(3, _portal_rng)
+	portal.open(waves.wave_index, waves.next_wave_types(), Game.run_points, offers)
+
+
+func _on_upgrade_chosen(u: Dictionary) -> void:
+	Upgrades.apply(u, get_tree())
+	waves.begin_countdown()
+
+
+func _on_extract() -> void:
+	## Leave through the rift: the run ends, the points are banked.
+	if run_over:
+		return
+	run_over = true
+	rift.set_active(false)
+	Game.ui_open = true
+	Game.meta_points += Game.run_points
+	print("RUN EXTRACTED with %d points after wave %d" % [Game.run_points, waves.wave_index + 1])
+	_show_results("Забег окончен\n\nВы ушли через разлом после волны %d\nОчки забега: %d, всего в казне: %d\n\n[E] новый забег" % [waves.wave_index + 1, Game.run_points, Game.meta_points])
+
+
+func _show_results(text: String) -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 30
+	add_child(layer)
+	var dim := ColorRect.new()
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(0, 0, 0, 0.7)
+	layer.add_child(dim)
+	results = Label.new()
+	results.set_anchors_preset(Control.PRESET_FULL_RECT)
+	results.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	results.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	results.add_theme_font_size_override("font_size", 28)
+	results.text = text
+	layer.add_child(results)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func _on_gate_fell() -> void:
