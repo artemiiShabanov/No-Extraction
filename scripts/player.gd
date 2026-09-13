@@ -35,6 +35,7 @@ var stunned_until := 0.0
 var recover_until := 0.0
 var immune_until := 0.0
 var stun_kick := Vector2.ZERO
+var _sway := Vector2.ZERO  # current stun sway offset (pitch, yaw), applied as deltas so it never drifts
 var stun_overlay: ColorRect
 var stun_cfg := {"duration": 1.2, "recovery": 1.0, "immunity": 2.0}
 
@@ -160,15 +161,17 @@ func _physics_process(delta: float) -> void:
 func _update_stun(delta: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	var strength := 0.0
+	var target_sway := Vector2.ZERO
 	if now < stunned_until:
 		strength = 1.0
 		aim_blend = move_toward(aim_blend, 0.0, delta * 12.0)
-		# the world reels
-		camera.rotation.x += sin(now * 23.0) * 0.004
-		rotate_y(cos(now * 17.0) * 0.003)
+		target_sway = Vector2(sin(now * 23.0) * 0.03, cos(now * 17.0) * 0.025)  # the world reels
 	elif now < recover_until:
 		strength = (recover_until - now) / max(float(stun_cfg.recovery), 0.01)
-		camera.rotation.x += sin(now * 9.0) * 0.0015 * strength
+		target_sway = Vector2(sin(now * 9.0) * 0.012 * strength, 0.0)
+	camera.rotation.x += target_sway.x - _sway.x
+	rotate_y(target_sway.y - _sway.y)
+	_sway = target_sway
 	stun_overlay.visible = strength > 0.001
 	if stun_overlay.visible:
 		(stun_overlay.material as ShaderMaterial).set_shader_parameter("strength", strength)

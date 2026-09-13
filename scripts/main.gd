@@ -214,6 +214,20 @@ func _auto_test() -> void:
 	# waves: start immediately, and start the next one 3 s after a wave is cleared
 	if frame == 5:
 		waves.start_next_wave()
+	# stairs check (before anything else touches input): walk up the right gatehouse flight
+	if frame == 20:
+		player.global_position = Vector3(12.8, 10.2, 1.65)
+		player.camera.rotation.x = 0.0
+		Input.action_press("move_forward")
+		Input.action_press("sprint")
+	if frame >= 20 and frame < 95:
+		player.rotation.y = PI / 2  # keep facing -X, up the flight
+	if frame == 95:
+		Input.action_release("move_forward")
+		Input.action_release("sprint")
+		print("STAIRS %s: player at %s" % ["OK" if player.global_position.y > 13.6 else "FAIL", player.global_position.round()])
+		player.global_position = Vector3(12.3, 10.1, -1.2)
+		player.rotation.y = 0.0
 	if waves.state == WaveManager.State.ACTIVE and Game.start_wave >= waves.wave_count() and frame == 700:
 		waves.pending.clear()  # victory path: finish the last wave quickly
 		Debug.kill_all_enemies()
@@ -331,7 +345,14 @@ func _auto_test() -> void:
 		player.stun(Vector3(0, 0, 1))
 	if frame == 122 and Game.screenshot_path != "":
 		_screenshot(Game.screenshot_path.replace(".png", "_stun.png"))
-	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 110 and Debug.freecam:
+	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 110:
+		Debug.cam.global_position = Vector3(24.0, 14.5, 5.0)
+		Debug.cam.look_at(Vector3(4.0, 12.5, 0.5))
+		Debug.cam_yaw = Debug.cam.rotation.y
+		Debug.cam_pitch = Debug.cam.rotation.x
+	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 125 and Game.screenshot_path != "":
+		_screenshot(Game.screenshot_path.replace(".png", "_stairs.png"))
+	if Game.gate_cam and frame == int(Game.test_frames * Game.gate_cam_at) + 140 and Debug.freecam:
 		Debug.toggle_freecam()
 		Input.action_press("aim")
 	if frame == Game.test_frames - 30:

@@ -177,24 +177,29 @@ n = 18
 for i in range(n):
     a = i / n * math.tau
     r = R1 + 0.05
-    box(mats, "TowerMerlon", (1.1, 0.7, MERLON_H), (math.cos(a) * r, math.sin(a) * r, H + 1.2 + MERLON_H / 2),
-        "StoneTower", rot_z=a + math.pi / 2, bevel=0.06)
+    if i not in (0, 9):  # the stairs from the wall arrive here
+        box(mats, "TowerMerlon", (1.1, 0.7, MERLON_H), (math.cos(a) * r, math.sin(a) * r, H + 1.2 + MERLON_H / 2),
+            "StoneTower", rot_z=a + math.pi / 2, bevel=0.06)
     box(mats, "TowerCorbel", (0.5, 0.5, 0.55), (math.cos(a) * (R1 + 0.15), math.sin(a) * (R1 + 0.15), H - 0.4),
         "StoneTower", rot_z=a, bevel=0.05)
 export("tower_round")
 
 # ---------------------------------------------------------------- gatehouse (with arch)
 mats = reset()
-GW, GD, GH = 9.0, 6.0, 12.0
+GW, GD, GH = 13.0, 6.0, 14.0
 body = box(mats, "GateBody", (GW, GD + 1.0, GH), (0, 0.0, GH / 2), "Stone")
-# passage: box + half cylinder, cut out with a boolean
+# ground passage: box + half cylinder; walkway tunnel through the block at wall-walk level
 bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, 1.75))
 cut = bpy.context.active_object
 cut.scale = (4.0, GD + 4.0, 3.5)
 bpy.ops.object.transform_apply(scale=True)
 bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=2.0, depth=GD + 4.0, location=(0, 0, 3.5), rotation=(math.pi / 2, 0, 0))
 arch = bpy.context.active_object
-for cutter in (cut, arch):
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0.7, WALK_Z + 1.2))
+tunnel = bpy.context.active_object
+tunnel.scale = (GW + 1.0, 2.6, 2.4)
+bpy.ops.object.transform_apply(scale=True)
+for cutter in (cut, arch, tunnel):
     mod = body.modifiers.new("cut", "BOOLEAN")
     mod.operation = "DIFFERENCE"
     mod.solver = "EXACT"
@@ -202,13 +207,71 @@ for cutter in (cut, arch):
     bpy.context.view_layer.objects.active = body
     bpy.ops.object.modifier_apply(modifier=mod.name)
     bpy.data.objects.remove(cutter)
+# roof: merlons all round, ledge and corbels on the outer face
 merlons_along_x(mats, -GW / 2, GW / 2, OUTER + 0.1, GH, "Stone")
+merlons_along_x(mats, -GW / 2, GW / 2, -OUTER - 0.1, GH, "Stone")
+for sx in (-1, 1):
+    yy = -OUTER + 1.3
+    while yy < OUTER - 0.5:
+        box(mats, "SideMerlon", (0.8, 1.2, MERLON_H), (sx * (GW / 2 - 0.4), yy, GH + MERLON_H / 2), "Stone", bevel=0.06)
+        yy += 2.6
 box(mats, "GateLedge", (GW, 0.35, 0.3), (0, OUTER + 0.6, GH - 1.3), "Stone", bevel=0.04)
 x = -GW / 2 + 0.55
 while x < GW / 2:
     box(mats, "GateCorbel", (0.45, 0.45, 0.55), (x, OUTER + 0.55, GH - 1.75), "Stone", bevel=0.05)
     x += 1.1
+# round bastions on the outer corners (decorative, no access)
+for sx in (-1, 1):
+    cylinder(mats, "Bastion", 2.4, GH + 1.0, (sx * GW / 2, OUTER + 0.6, (GH + 1.0) / 2), "StoneTower", verts=20, radius_top=2.2)
+    cylinder(mats, "BastionCap", 2.5, 1.0, (sx * GW / 2, OUTER + 0.6, GH + 1.5), "StoneTower", verts=20)
+    for i in range(10):
+        a = i / 10 * math.tau
+        box(mats, "BastionMerlon", (0.9, 0.6, 0.8), (sx * GW / 2 + math.cos(a) * 2.2, OUTER + 0.6 + math.sin(a) * 2.2, GH + 2.4),
+            "StoneTower", rot_z=a + math.pi / 2, bevel=0.05)
 export("gatehouse")
+
+# ---------------------------------------------------------------- stairs
+def build_stairs(name, run, rise, steps, direction):
+    """Flight rising along X from the origin (bottom) by `rise` over `run`. direction -1 = towards -X.
+    'Steps' is the visible sawtooth, 'Ramp' a hidden sloped slab used for collision."""
+    mats = reset()
+    width = 1.9
+    tread = run / steps
+    riser = rise / steps
+    for i in range(steps):
+        x = direction * (i + 0.5) * tread
+        h = (i + 1) * riser
+        box(mats, "Steps", (tread, width, h), (x, 0, h / 2), "Stone")
+    # side wall (a low string wall on the inner side keeps the flight readable)
+    box(mats, "StepsWall", (run, 0.25, 0.9), (direction * run / 2, -width / 2 - 0.12, rise / 2 + 0.45), "Stone")
+    # hidden collision ramp along the step tops
+    length = math.hypot(run, rise)
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(direction * run / 2, 0, rise / 2 - 0.15))
+    ramp = bpy.context.active_object
+    ramp.name = "Ramp"
+    ramp.scale = (length, width, 0.3)
+    ramp.rotation_euler = (0, -direction * math.atan2(rise, run), 0)
+    bpy.ops.object.transform_apply(scale=True, rotation=True)
+    ramp.data.materials.append(mats["Stone"])
+    parts.append(ramp)
+    # export without joining: Godot needs the Ramp as a separate mesh
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in parts:
+        o.select_set(True)
+    for o in parts:
+        bpy.context.view_layer.objects.active = o
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    path = os.path.join(OUT_DIR, f"{name}.glb")
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True,
+                              export_animations=False, export_yup=True)
+    print("EXPORTED", path)
+    parts.clear()
+
+
+build_stairs("gate_stairs_l", 6.0, 4.0, 16, -1)
+build_stairs("gate_stairs_r", 6.0, 4.0, 16, 1)
+build_stairs("tower_stairs_l", 6.5, 4.2, 17, -1)
+build_stairs("tower_stairs_r", 6.5, 4.2, 17, 1)
 
 # ---------------------------------------------------------------- gate doors
 mats = reset()

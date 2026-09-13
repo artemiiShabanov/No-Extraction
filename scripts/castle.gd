@@ -10,6 +10,13 @@ const GATE_HALF := 4.5
 const WallSegment := preload("res://assets/models/castle/wall_segment.glb")
 const TowerRound := preload("res://assets/models/castle/tower_round.glb")
 const Gatehouse := preload("res://assets/models/castle/gatehouse.glb")
+const GateStairsL := preload("res://assets/models/castle/gate_stairs_l.glb")
+const GateStairsR := preload("res://assets/models/castle/gate_stairs_r.glb")
+const TowerStairsL := preload("res://assets/models/castle/tower_stairs_l.glb")
+const TowerStairsR := preload("res://assets/models/castle/tower_stairs_r.glb")
+const STAIR_Z := 1.65  # inner strip of the walkway
+const ROOF_Y := 14.0
+const TOWER_TOP_Y := 14.2
 
 
 func _ready() -> void:
@@ -24,10 +31,14 @@ func _ready() -> void:
 	gate.name = "Gate"
 	gate.position = Vector3(0, 0, 0.6)
 	add_child(gate)
-	# gate flank towers (smaller) and corner towers
+	# corner towers with stairs from the walkway; stairs to the gatehouse roof
 	for sx in [-1.0, 1.0]:
-		_place(TowerRound, Vector3(sx * 6.8, 0, 0), 0.72)
 		_place(TowerRound, Vector3(sx * WALL_HALF, 0, 0))
+	_place(GateStairsL, Vector3(12.5, WALK_Y, STAIR_Z))
+	_place(GateStairsR, Vector3(-12.5, WALK_Y, STAIR_Z))
+	_place(TowerStairsR, Vector3(34.0, WALK_Y, STAIR_Z))
+	_place(TowerStairsL, Vector3(-34.0, WALK_Y, STAIR_Z))
+	_build_boundaries()
 	# a few boulders in the field for scale
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
@@ -46,6 +57,10 @@ func _place(scene: PackedScene, pos: Vector3, scale_xz: float = 1.0) -> Node3D:
 	EnvMaterials.apply_to(inst)
 	for mi in inst.find_children("*", "MeshInstance3D", true, false):
 		mi.gi_mode = GeometryInstance3D.GI_MODE_STATIC
+		if mi.name.begins_with("Steps") and not mi.name.begins_with("StepsWall"):
+			continue  # visual sawtooth; the hidden Ramp mesh carries the collision
+		if mi.name.begins_with("Ramp"):
+			mi.visible = false
 		var body := StaticBody3D.new()
 		body.collision_layer = Game.LAYER_WORLD
 		body.collision_mask = 0
@@ -54,6 +69,44 @@ func _place(scene: PackedScene, pos: Vector3, scale_xz: float = 1.0) -> Node3D:
 		body.add_child(shape)
 		mi.add_child(body)
 	return inst
+
+
+## Invisible walls: nobody leaves the wall walk, the gatehouse roof or the tower tops.
+func _build_boundaries() -> void:
+	var h := 7.0
+	var y := WALK_Y + h / 2
+	# outer parapet and inner edge along both wall halves
+	for sx in [-1.0, 1.0]:
+		var x0 := 6.5
+		var x1 := WALL_HALF + 6.0
+		var cx: float = sx * (x0 + x1) / 2
+		_wall(Vector3(cx, y, -2.55), Vector3(x1 - x0, h, 0.2))
+		_wall(Vector3(cx, y, 2.65), Vector3(x1 - x0, h, 0.2))
+	# gatehouse roof: front and back edges
+	_wall(Vector3(0, y, -3.65), Vector3(13.2, h, 0.2))
+	_wall(Vector3(0, y, 3.65), Vector3(13.2, h, 0.2))
+	# corner tower tops: a ring of panels, and end caps beyond the towers
+	for sx in [-1.0, 1.0]:
+		var c := Vector3(sx * WALL_HALF, TOWER_TOP_Y + h / 2, 0)
+		for i in 14:
+			var a := TAU * i / 14
+			var seg := _wall(c + Vector3(cos(a), 0, sin(a)) * 4.75, Vector3(2.3, h, 0.2))
+			seg.rotation.y = -a + PI / 2
+		_wall(Vector3(sx * (WALL_HALF + 5.3), y, 0), Vector3(0.2, h, 12.0))
+
+
+func _wall(center: Vector3, size: Vector3) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.collision_layer = Game.LAYER_WORLD
+	body.collision_mask = 0
+	body.position = center
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	body.add_child(shape)
+	add_child(body)
+	return body
 
 
 func _rock(center: Vector3, size: float, yaw: float) -> void:
