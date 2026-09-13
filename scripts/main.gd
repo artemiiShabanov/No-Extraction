@@ -8,7 +8,7 @@ var spawner: Node3D
 var waves: WaveManager
 var rift: Rift
 var portal: PortalMenu
-var results: Label
+var results: ResultsScreen
 var run_over := false
 var _portal_rng := RandomNumberGenerator.new()
 var hud: Label
@@ -66,6 +66,10 @@ func _ready() -> void:
 	add_child(portal)
 	_portal_rng.seed = Game.run_seed + 991
 	Upgrades.load_pool()
+	results = ResultsScreen.new()
+	results.name = "Results"
+	results.restart_requested.connect(Debug.restart_scene)
+	add_child(results)
 
 	player = PlayerScene.instantiate()
 	player.position = Vector3(12.3, 10.1, -1.2)  # crenel gap east of the gate tower (radius 3.6 at x = 6.8)
@@ -171,10 +175,15 @@ func _process(_delta: float) -> void:
 	if Input.is_action_just_pressed("next_wave") and not Debug.input_blocked():
 		if waves.state == WaveManager.State.COUNTDOWN or waves.state == WaveManager.State.IDLE:
 			waves.start_next_wave()
-	if rift.player_inside and rift.is_active() and waves.state == WaveManager.State.CLEARED and not portal.is_open():
-		hud.text += "\n[E] войти в разлом"
-		if Input.is_action_just_pressed("interact") and not Debug.input_blocked():
-			open_portal()
+	if rift.player_inside and rift.is_active() and not portal.is_open() and not run_over:
+		if waves.state == WaveManager.State.CLEARED:
+			hud.text += "\n[E] войти в разлом"
+			if Input.is_action_just_pressed("interact") and not Debug.input_blocked():
+				open_portal()
+		elif waves.state == WaveManager.State.WON:
+			hud.text += "\n[E] покинуть поле боя победителем"
+			if Input.is_action_just_pressed("interact") and not Debug.input_blocked():
+				_on_victory()
 	if run_over and Input.is_action_just_pressed("interact"):
 		Debug.restart_scene()
 	if Game.auto_test:
@@ -205,6 +214,17 @@ func _auto_test() -> void:
 	# waves: start immediately, and start the next one 3 s after a wave is cleared
 	if frame == 5:
 		waves.start_next_wave()
+	if waves.state == WaveManager.State.ACTIVE and Game.start_wave >= waves.wave_count() and frame == 700:
+		waves.pending.clear()  # victory path: finish the last wave quickly
+		Debug.kill_all_enemies()
+	if waves.state == WaveManager.State.WON and not run_over:
+		_cleared_frames += 1
+		if _cleared_frames == 40:
+			Input.action_release("aim")
+			player.global_position = rift.global_position + Vector3(-1.5, 0.1, 0.0)
+			player.aim_at(rift.global_position + Vector3(0, 1.6, 0))
+		if _cleared_frames == 60:
+			_on_victory()
 	if waves.state == WaveManager.State.CLEARED and not run_over:
 		_cleared_frames += 1
 		if _cleared_frames == 40:
@@ -347,34 +367,36 @@ func _on_extract() -> void:
 		return
 	run_over = true
 	rift.set_active(false)
-	Game.ui_open = true
 	Game.meta_points += Game.run_points
 	print("RUN EXTRACTED with %d points after wave %d" % [Game.run_points, waves.wave_index + 1])
-	_show_results("Забег окончен\n\nВы ушли через разлом после волны %d\nОчки забега: %d, всего в казне: %d\n\n[E] новый забег" % [waves.wave_index + 1, Game.run_points, Game.meta_points])
+	results.show_outcome("extract", waves.wave_index + 1, 0)
 
 
-func _show_results(text: String) -> void:
-	var layer := CanvasLayer.new()
-	layer.layer = 30
-	add_child(layer)
-	var dim := ColorRect.new()
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0, 0, 0, 0.7)
-	layer.add_child(dim)
-	results = Label.new()
-	results.set_anchors_preset(Control.PRESET_FULL_RECT)
-	results.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	results.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	results.add_theme_font_size_override("font_size", 28)
-	results.text = text
-	layer.add_child(results)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+func _on_victory() -> void:
+	if run_over:
+		return
+	run_over = true
+	rift.set_active(false)
+	Game.award("victory")
+	Game.meta_points += Game.run_points
+	print("RUN VICTORY with %d points" % Game.run_points)
+	results.show_outcome("victory", waves.wave_index + 1, 0)
+
+
+func _on_defeat() -> void:
+	if run_over:
+		return
+	run_over = true
+	var burned := Game.run_points
+	waves.lose()
+	print("RUN DEFEAT: %d points burned" % burned)
+	results.show_outcome("defeat", waves.wave_index, burned)
 
 
 func _on_gate_fell() -> void:
 	# short breach sequence: enemies pour in for a few seconds, then the run is lost
 	print("GATE breach sequence")
-	get_tree().create_timer(4.0).timeout.connect(waves.lose)
+	get_tree().create_timer(4.0).timeout.connect(_on_defeat)
 
 
 func _closeup(type_id: String) -> void:

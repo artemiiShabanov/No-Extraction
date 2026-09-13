@@ -671,16 +671,17 @@ func hit_zone(zone: String, pos: Vector3, impulse: Vector3) -> String:
 	BulletScript.spawn_puff(get_tree().current_scene, pos, -impulse.normalized(), Color(0.55, 0.08, 0.05, 0.95), 18, 0.25)
 	hp -= ZONE_DAMAGE.get(zone, 1)
 	if hp <= 0:
-		if zone == "head":
-			Game.headshots += 1
-			Game.award("headshot")
 		if faction == Game.Faction.ALLY:
-			Game.ally_kills += 1
+			Game.ally_kills += 1  # friendly fire earns nothing
 		else:
 			Game.kills += 1
 			Game.award("kill")
+			if zone == "head":
+				Game.headshots += 1
+				Game.award("headshot")
 			if priority:
 				Game.award("priority")
+				Game.priority_kills += 1
 			if points_kind != "":
 				Game.award(points_kind)
 			if death_stagger > 0.0:

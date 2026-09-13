@@ -202,6 +202,7 @@ func try_fire() -> void:
 			return
 	if not Debug.infinite_ammo:
 		ammo -= 1
+	Game.shots += 1
 	fire_cooldown = bolt_time
 	recoil_pitch += 0.09
 	rifle_kick += 0.07

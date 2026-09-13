@@ -107,6 +107,7 @@ func drop() -> void:
 	crew.clear()
 	if not (Game.gate and Game.gate.fallen):
 		Game.award("ram")
+		Game.priority_kills += 1
 	# the log falls to the ground as physics debris
 	var rb := RigidBody3D.new()
 	rb.collision_layer = Game.LAYER_RAGDOLL

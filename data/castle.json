@@ -18,7 +18,8 @@
     "priority": 50,
     "wave": 100,
     "ram": 75,
-    "archer": 30
+    "archer": 30,
+    "victory": 500
   },
   "gate_effects": false,
   "stun": {

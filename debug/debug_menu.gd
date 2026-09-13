@@ -325,19 +325,9 @@ func damage_gate() -> void:
 
 func restart_scene() -> void:
 	Engine.time_scale = 1.0
-	Game.kills = 0
-	Game.headshots = 0
-	Game.blocked = 0
-	Game.ally_kills = 0
-	Game.melee_deaths = 0
-	Game.last_kill = null
-	Game.run_points = 0
-	Game.defeated = false
+	Game.reset_run_stats()
 	Game.gate = null
 	Game.rift = null
-	Game.ui_open = false
-	Game.armor_piercing = false
-	Game.upgrades_taken.clear()
 	if freecam:
 		toggle_freecam()
 	set_menu_open(false)

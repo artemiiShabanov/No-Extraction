@@ -47,6 +47,38 @@ var ui_open := false  # a menu owns the mouse; the player ignores input
 var armor_piercing := false  # upgrade: shields no longer block bullets
 var upgrades_taken: Array[String] = []
 var meta_points := 0  # points banked by leaving through the portal (saved in #24)
+# run statistics for the results screen
+var breakdown := {}  # points by kind
+var shots := 0
+var hits := 0
+var priority_kills := 0
+var wave_total := 8
+var run_start_msec := 0
+
+
+func run_seconds() -> float:
+	return (Time.get_ticks_msec() - run_start_msec) / 1000.0 if run_start_msec > 0 else 0.0
+
+
+func reset_run_stats() -> void:
+	kills = 0
+	headshots = 0
+	blocked = 0
+	ally_kills = 0
+	melee_deaths = 0
+	stuns = 0
+	arrows = 0
+	last_kill = null
+	run_points = 0
+	defeated = false
+	breakdown = {}
+	shots = 0
+	hits = 0
+	priority_kills = 0
+	run_start_msec = 0
+	ui_open = false
+	armor_piercing = false
+	upgrades_taken.clear()
 var run_points := 0
 var defeated := false
 var points_cfg := {"kill": 10, "headshot": 5, "priority": 50, "wave": 100}
@@ -69,7 +101,9 @@ func apply_render_scale() -> void:
 
 
 func award(kind: String) -> void:
-	run_points += int(points_cfg.get(kind, 0))
+	var v := int(points_cfg.get(kind, 0))
+	run_points += v
+	breakdown[kind] = breakdown.get(kind, 0) + v
 
 
 var _horn: AudioStreamPlayer

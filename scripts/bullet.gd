@@ -90,6 +90,7 @@ func _on_hit(hit: Dictionary) -> void:
 	if collider is Area3D and collider.has_meta("knight"):
 		var knight: Node = collider.get_meta("knight")
 		if is_instance_valid(knight):
+			Game.hits += 1
 			knight.hit_zone(collider.get_meta("zone"), hit.position, dir * impact_impulse)
 	elif collider.has_method("hit"):
 		collider.hit(hit.position, dir * impact_impulse, self)

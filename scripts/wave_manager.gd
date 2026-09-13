@@ -38,6 +38,7 @@ func _ready() -> void:
 	types = _load_json(TYPES_PATH)
 	castle_cfg = _load_json("res://data/castle.json")
 	Game.points_cfg = castle_cfg.get("points", Game.points_cfg)
+	Game.wave_total = wave_count()
 	wave_index = clampi(Game.start_wave, 1, wave_count()) - 2  # start_next_wave() adds one
 
 
@@ -109,6 +110,8 @@ func start_next_wave() -> void:
 		Game.play_horn()
 	wave_time = 0.0
 	state = State.ACTIVE
+	if Game.run_start_msec == 0:
+		Game.run_start_msec = Time.get_ticks_msec()
 	if Game.rift:
 		Game.rift.set_active(false)
 	var player := get_tree().current_scene.get_node_or_null("Player")
@@ -285,9 +288,9 @@ func _cleared() -> void:
 	wave_cleared.emit(wave_index, stats)
 	if wave_index + 1 >= wave_count():
 		state = State.WON
-		print("RUN WON")
+		print("RUN WON: siege repelled, the rift opens one last time")
 		run_won.emit()
-	elif Game.rift:
+	if Game.rift:
 		Game.rift.set_active(true)
 
 
@@ -308,7 +311,7 @@ func status_text() -> String:
 		State.COUNTDOWN:
 			return "Волна %d через %d с   [N] начать сейчас" % [wave_index + 2, ceili(countdown)]
 		State.WON:
-			return "ПОБЕДА: все %d волн отбиты, очки %d" % [wave_count(), Game.run_points]
+			return "ОСАДА ОТБИТА. Разлом открыт в последний раз: войдите в него"
 		State.LOST:
-			return "ВОРОТА ПАЛИ. Очки забега сгорели. Перезапуск: дебаг-меню или F1"
+			return "ВОРОТА ПАЛИ"
 	return ""
