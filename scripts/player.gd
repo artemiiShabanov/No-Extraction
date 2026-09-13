@@ -174,10 +174,11 @@ func _update_stun(delta: float) -> void:
 		(stun_overlay.material as ShaderMaterial).set_shader_parameter("strength", strength)
 
 
-## Give the player this wave's ammunition: full magazine, the rest in reserve.
+## Add this wave's ammunition: leftovers carry over, the magazine is topped up from the pool.
 func resupply(total: int) -> void:
-	ammo = mini(total, magazine_size)
-	reserve = max(total - ammo, 0)
+	var pool := ammo + reserve + total
+	ammo = mini(pool, magazine_size)
+	reserve = max(pool - ammo, 0)
 	reloading = 0.0
 
 
