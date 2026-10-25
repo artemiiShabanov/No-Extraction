@@ -2,6 +2,7 @@
 
 Read `docs/DESIGN.md` before designing anything and `docs/PLAN.md` for scope. Design decisions
 made in chat go into the decision log in `docs/DESIGN.md` the same day.
+The shared process for all games is in `~/Documents/GitHub/gamedev-hub/WORKFLOW.md`.
 
 ## Layout
 
@@ -9,7 +10,7 @@ made in chat go into the decision log in `docs/DESIGN.md` the same day.
   `assets/mixamo` rig + clips, `assets/env` CC0 textures (fetch: `tools/fetch_polyhaven.py`).
 - `tools/blender/*.py` are the source of every model: edit the script, rebuild, never hand-edit glb.
 - `debug/` debug menu, test scenes and playtest captures (`debug/playtest/` is gitignored).
-- `docs/plan.yaml` is the plan source; `python3 tools/github/sync_plan.py --github` mirrors it.
+- `docs/plan.yaml` is the plan source; `python3 tools/sync_plan.py --github` mirrors it.
 
 ## Verification loop
 

@@ -1,6 +1,6 @@
 # План No-Extraction
 
-Источник: `docs/plan.yaml`. Обновить этот файл: `python3 tools/github/sync_plan.py`.
+Источник: `docs/plan.yaml`. Обновить: `python3 tools/sync_plan.py`.
 
 Размеры: S = полдня, M = день, L = два дня, XL = три дня.
 
@@ -134,6 +134,10 @@
 - `type: audio` `#1abc9c` — Звук и музыка
 - `type: art` `#fbca04` — 2D-арт: иконки, капсула, текстуры
 - `type: release` `#5a5a5a` — Steam, сборки, инфраструктура
+- `size: S` `#c5def5` — Полдня
+- `size: M` `#9ec5e8` — День
+- `size: L` `#6fa8dc` — Два дня
+- `size: XL` `#3d85c6` — Три дня
 - `owner: artemii` `#c2e0c6` — Делает Артемий
 - `owner: claude` `#bfd4f2` — Делает Claude
 - `owner: both` `#e6d7f5` — Совместно

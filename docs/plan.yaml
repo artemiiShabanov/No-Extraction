@@ -1,9 +1,12 @@
-# Единый источник плана No-Extraction.
-# Из него генерируются docs/PLAN.md и метки/вехи/задачи на GitHub:
-#   python3 tools/github/sync_plan.py            # обновить PLAN.md
-#   python3 tools/github/sync_plan.py --github   # плюс создать метки, вехи и задачи через gh
+# Единый источник плана No-Extraction. Из него генерируются docs/PLAN.md и метки/вехи/issues на GitHub:
+#   python3 tools/sync_plan.py            # обновить PLAN.md
+#   python3 tools/sync_plan.py --github   # плюс создать метки, вехи и issues (идемпотентно)
 #
 # size: S = полдня, M = день, L = два дня, XL = три дня (рабочие дни одного человека + Claude)
+# Задачи атомарны. Issue закрываются на GitHub; done: true здесь только для уже закрытых при миграции.
+# optional: true у вехи: её оценка показывается в итоге отдельно.
+
+project: No-Extraction
 
 labels:
   types:
@@ -15,6 +18,11 @@ labels:
     "type: audio":    {color: "1abc9c", desc: "Звук и музыка"}
     "type: art":      {color: "fbca04", desc: "2D-арт: иконки, капсула, текстуры"}
     "type: release":  {color: "5a5a5a", desc: "Steam, сборки, инфраструктура"}
+  sizes:
+    "size: S":  {color: "c5def5", desc: "Полдня"}
+    "size: M":  {color: "9ec5e8", desc: "День"}
+    "size: L":  {color: "6fa8dc", desc: "Два дня"}
+    "size: XL": {color: "3d85c6", desc: "Три дня"}
   owners:
     "owner: artemii": {color: "c2e0c6", desc: "Делает Артемий"}
     "owner: claude":  {color: "bfd4f2", desc: "Делает Claude"}
@@ -278,6 +286,7 @@ phases:
     title: "M6 Если останется время"
     goal: "Приятные вещи, которые не блокируют релиз."
     done_when: "По желанию."
+    optional: true
     issues:
       - title: "3D-хаб вместо главного меню: тир с мишенями"
         types: [code, 3d]

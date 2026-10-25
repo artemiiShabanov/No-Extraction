@@ -1,0 +1,8 @@
+# Метаданные для gamedev-hub. Хаб читает этот файл из main и показывает на дашборде.
+# phase: idea | prototype | vertical-slice | content | polish | released | paused | archived
+name: No-Extraction
+tagline: Снайпер на крепостной стене против волн рыцарей
+engine: Godot 4.7
+phase: vertical-slice
+tracker: github-issues
+next: "M1 вертикальный срез: один полный забег; все системы готовы, идёт плейтест (#1-#8, #10)"
